@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Core Theme Dark Palette */
+  --bg-app: #090d16;
+  --bg-surface: #111827;
+  --bg-sidebar: rgba(15, 23, 42, 0.82);
+  --bg-card: rgba(30, 41, 59, 0.55);
+  --bg-card-active: rgba(59, 130, 246, 0.12);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(59, 130, 246, 0.35);
+  
+  /* Text Colors */
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  
+  /* Brand Accent Colors */
+  --color-primary: #3b82f6;        /* Modern Blue */
+  --color-primary-hover: #2563eb;
+  --color-secondary: #10b981;      /* Emerald Green */
+  --color-accent: #8b5cf6;         /* Purple Accent */
+  
+  /* Traffic Status Colors (STRICT) */
+  --traffic-green: #10b981;        /* Low traffic ONLY */
+  --traffic-orange: #f97316;       /* Normal/Moderate traffic (Amber/Orange) */
+  --traffic-red: #ef4444;          /* High/Heavy traffic */
+  
+  /* Route Polylines & Legend */
+  --route-fastest: #3b82f6;        /* Fastest Route: Blue */
+  --route-balanced: #f59e0b;       /* Balanced Route: Amber */
+  --route-slow: #8b5cf6;           /* Low Traffic/Slow Route: Purple */
+
+  /* UI Transitions */
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .brand-font {
+  font-family: 'Outfit', sans-serif;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Premium Glassmorphism Classes */
+.glass-panel {
+  background: var(--bg-sidebar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  transition: all var(--transition-normal);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.35);
+}

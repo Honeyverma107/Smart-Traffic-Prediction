@@ -1,0 +1,13 @@
+django
+djangorestframework
+osmnx 
+pandas
+scikit-learn
+psycopg2-binary
+
+python-dotenv
+django-cors-headers
+python-decouple
+
+google-auth
+djangorestframework-simplejwt
