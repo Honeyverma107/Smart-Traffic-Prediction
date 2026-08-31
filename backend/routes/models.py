@@ -66,3 +66,59 @@ class SegmentTrafficObservation(models.Model):
             models.Index(fields=['observed_at']),
         ]
 
+
+class ChallanRecord(models.Model):
+    challan_id = models.CharField(max_length=64, unique=True, db_index=True)
+    violation_type = models.CharField(max_length=100, default="RED LIGHT VIOLATION")
+    vehicle_type = models.CharField(max_length=50, default="Car")
+    vehicle_number = models.CharField(max_length=50, default="Pending ANPR")
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    location = models.CharField(max_length=150, default="Vijay Nagar Junction, Indore")
+    signal_state = models.CharField(max_length=20, default="RED")
+    evidence_image_url = models.CharField(max_length=500, blank=True, null=True)
+    before_evidence_url = models.CharField(max_length=500, blank=True, null=True)
+    during_evidence_url = models.CharField(max_length=500, blank=True, null=True)
+    after_evidence_url = models.CharField(max_length=500, blank=True, null=True)
+    tracking_id = models.IntegerField(default=0)
+    confidence = models.FloatField(default=0.92)
+    status = models.CharField(max_length=50, default="AI DETECTED — PENDING REVIEW")
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def to_dict(self):
+        demo_map = {
+            1: {"number": "MP-09-AB-1234 (Demo ANPR)", "owner": "Rajesh Sharma (Demo)"},
+            2: {"number": "MP-09-CD-5678 (Demo ANPR)", "owner": "Ankit Verma (Demo)"},
+            7: {"number": "MP-09-XY-9876 (Demo ANPR)", "owner": "Pooja Patel (Demo)"},
+            8: {"number": "MP-09-EF-4321 (Demo ANPR)", "owner": "Vikram Singh (Demo)"},
+            12: {"number": "MP-09-GH-8765 (Demo ANPR)", "owner": "Suresh Gupta (Demo)"}
+        }
+        mock_info = demo_map.get(self.tracking_id, {"number": "MP-09-AZ-9999 (Demo ANPR)", "owner": "Demo Vehicle Owner"})
+
+        ev_url = self.evidence_image_url if self.evidence_image_url else "/media/evidence/demo_evidence.jpg"
+        b_url = self.before_evidence_url if self.before_evidence_url else ev_url
+        d_url = self.during_evidence_url if self.during_evidence_url else ev_url
+        a_url = self.after_evidence_url if self.after_evidence_url else ev_url
+
+        return {
+            "id": self.id,
+            "challan_id": self.challan_id,
+            "violation_type": self.violation_type,
+            "vehicle_type": self.vehicle_type,
+            "vehicle_number": mock_info["number"] if self.vehicle_number == "Pending ANPR" else self.vehicle_number,
+            "owner_name": mock_info["owner"],
+            "timestamp": self.timestamp.strftime("%Y-%m-%d %I:%M:%S %p") if self.timestamp else "",
+            "location": self.location,
+            "signal_state": self.signal_state,
+            "evidence_image_url": ev_url,
+            "before_evidence_url": b_url,
+            "during_evidence_url": d_url,
+            "after_evidence_url": a_url,
+            "tracking_id": self.tracking_id,
+            "confidence": self.confidence,
+            "fine_amount": 1000,
+            "status": self.status,
+            "detection_summary": f"Vehicle ID #{self.tracking_id} ({self.vehicle_type}) crossed the stop line while the signal was {self.signal_state}."
+        }
+

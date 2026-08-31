@@ -16,12 +16,17 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.conf import settings
+from django.views.static import serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('api/', include('routes.urls')),
-    
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('ai_challan_violation.mp4', serve, {'document_root': settings.BASE_DIR, 'path': 'ai_challan_violation.mp4'}),
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
+
+

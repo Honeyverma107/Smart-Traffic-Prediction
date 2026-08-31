@@ -10,10 +10,58 @@ from .views import (
     TestEmailView,
     SignalTimingView,
     CurrentTrafficView,
+    HistoricalTrafficView,
+    RecentTrafficView,
+    VijayNagarTrafficView,
+    RightTimeToGoView,
+    TomTomSearchLocationView,
+    TomTomReverseGeocodeView,
+    AutoChallanListProcessView,
+    AutoChallanDetailView,
 )
 
 
 urlpatterns = [
+
+    path(
+        "violations/",
+        AutoChallanListProcessView.as_view(),
+        name="violations_list"
+    ),
+
+    path(
+        "violations",
+        AutoChallanListProcessView.as_view()
+    ),
+
+    path(
+        "violations/process/",
+        AutoChallanListProcessView.as_view(),
+        name="violations_process"
+    ),
+
+    path(
+        "violations/process",
+        AutoChallanListProcessView.as_view()
+    ),
+
+    path(
+        "violations/<str:challan_id>/",
+        AutoChallanDetailView.as_view(),
+        name="violation_detail"
+    ),
+
+    path(
+        "location/search/",
+        TomTomSearchLocationView.as_view(),
+        name="location_search"
+    ),
+
+    path(
+        "location/reverse/",
+        TomTomReverseGeocodeView.as_view(),
+        name="location_reverse"
+    ),
 
     path(
         "routes/",
@@ -112,5 +160,49 @@ urlpatterns = [
     path(
         "test-email",
         TestEmailView.as_view()
+    ),
+
+    path(
+        "traffic/historical/",
+        HistoricalTrafficView.as_view(),
+        name="traffic_historical"
+    ),
+
+    path(
+        "traffic/historical",
+        HistoricalTrafficView.as_view()
+    ),
+
+    path(
+        "traffic/recent/",
+        RecentTrafficView.as_view(),
+        name="traffic_recent"
+    ),
+
+    path(
+        "traffic/recent",
+        RecentTrafficView.as_view()
+    ),
+
+    path(
+        "traffic/vijaynagar/",
+        VijayNagarTrafficView.as_view(),
+        name="traffic_vijaynagar"
+    ),
+
+    path(
+        "traffic/vijaynagar",
+        VijayNagarTrafficView.as_view()
+    ),
+
+    path(
+        "right-time-to-go/",
+        RightTimeToGoView.as_view(),
+        name="right_time_to_go"
+    ),
+
+    path(
+        "right-time-to-go",
+        RightTimeToGoView.as_view()
     ),
 ]

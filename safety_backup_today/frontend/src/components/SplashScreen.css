@@ -1,0 +1,382 @@
+/* ==========================================================================
+   SMART TRAFFIC — Premium Futuristic Splash / Intro Screen Styles
+   ========================================================================== */
+
+.splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 45%, #13192e 0%, #090d16 65%, #05070d 100%);
+  overflow: hidden;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  color: #ffffff;
+  opacity: 1;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.splash-overlay.fade-out {
+  opacity: 0;
+  transform: scale(1.03);
+  pointer-events: none;
+}
+
+/* Background Glowing Orbs */
+.splash-bg-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  opacity: 0;
+  animation: glowFadeIn 1.5s ease-out forwards;
+}
+
+.glow-1 {
+  width: 450px;
+  height: 450px;
+  background: rgba(56, 189, 248, 0.14);
+  top: 20%;
+  left: 30%;
+  animation-delay: 0.2s;
+}
+
+.glow-2 {
+  width: 500px;
+  height: 500px;
+  background: rgba(168, 85, 247, 0.12);
+  bottom: 15%;
+  right: 25%;
+  animation-delay: 0.5s;
+}
+
+@keyframes glowFadeIn {
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Subtle Grid Pattern */
+.splash-grid-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 80%);
+  opacity: 0;
+  animation: gridReveal 1.2s ease-out 0.5s forwards;
+}
+
+@keyframes gridReveal {
+  from { opacity: 0; }
+  to { opacity: 0.7; }
+}
+
+/* Map & Route Container */
+.splash-map-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  animation: mapAppear 1.5s ease-out 0.5s forwards;
+}
+
+@keyframes mapAppear {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 0.85; transform: scale(1); }
+}
+
+.splash-svg-map {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Animated SVG Route Lines */
+.animated-route-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawRouteLine 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.route-1 { animation-delay: 1.0s; }
+.route-2 { animation-delay: 1.2s; }
+.route-3 { animation-delay: 1.4s; }
+
+@keyframes drawRouteLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Moving Traffic Dots */
+.traffic-vehicle-dots {
+  opacity: 0;
+  animation: dotsReveal 0.8s ease-out 1.5s forwards;
+}
+
+@keyframes dotsReveal {
+  to { opacity: 1; }
+}
+
+/* AI Nodes Pulse */
+.ai-node-group {
+  opacity: 0;
+  animation: nodeFadeIn 0.8s ease-out forwards;
+}
+
+.node-delay-0 { animation-delay: 0.6s; }
+.node-delay-1 { animation-delay: 0.8s; }
+.node-delay-2 { animation-delay: 1.0s; }
+.node-delay-3 { animation-delay: 1.2s; }
+
+@keyframes nodeFadeIn {
+  to { opacity: 1; }
+}
+
+.node-pulse-ring {
+  transform-origin: center;
+  animation: ringPulse 2.5s infinite ease-out;
+}
+
+@keyframes ringPulse {
+  0% { r: 4px; opacity: 0.8; }
+  100% { r: 18px; opacity: 0; }
+}
+
+/* Central Content Box */
+.splash-center-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  max-width: 640px;
+}
+
+/* App Logo Styling & Animations */
+.splash-logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.75rem;
+  opacity: 0;
+  transform: scale(0.6);
+  animation: logoPopIn 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 1.8s forwards;
+}
+
+@keyframes logoPopIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.splash-logo-glow-ring {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.6) 0%, rgba(16, 185, 129, 0.6) 100%);
+  filter: blur(15px);
+  animation: logoGlowPulse 2.5s ease-in-out infinite alternate 2.5s;
+}
+
+@keyframes logoGlowPulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  100% { transform: scale(1.2); opacity: 0.95; }
+}
+
+.splash-logo-box {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.splash-brand-icon {
+  font-size: 40px;
+  color: #ffffff;
+}
+
+/* Text Container & Animations */
+.splash-text-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.splash-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
+  transform: translateY(18px);
+  animation: textSlideUp 1.0s cubic-bezier(0.16, 1, 0.3, 1) 2.2s forwards;
+}
+
+.splash-subtitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #38bdf8;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: textSlideUp 1.0s cubic-bezier(0.16, 1, 0.3, 1) 2.4s forwards;
+}
+
+@keyframes textSlideUp {
+  0% { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Status Indicator / Progress Bar */
+.splash-status-container {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 220px;
+  opacity: 0;
+  animation: fadeIn 0.8s ease-out 2.5s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.splash-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.splash-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #10b981 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+  animation: progressFill 1.5s cubic-bezier(0.4, 0, 0.2, 1) 2.5s forwards;
+}
+
+@keyframes progressFill {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.splash-status-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+/* Skip Button */
+.splash-skip-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  opacity: 0;
+  animation: fadeIn 0.5s ease-out 1.0s forwards;
+}
+
+.splash-skip-btn:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.splash-skip-btn span.material-symbols-outlined {
+  font-size: 16px;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .splash-title {
+    font-size: 1.85rem;
+  }
+  .splash-subtitle {
+    font-size: 0.78rem;
+    letter-spacing: 1.8px;
+  }
+  .splash-logo-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+  .splash-brand-icon {
+    font-size: 32px;
+  }
+}
+
+/* Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .splash-bg-glow,
+  .splash-grid-pattern,
+  .splash-map-container,
+  .traffic-vehicle-dots,
+  .ai-node-group,
+  .splash-logo-wrapper,
+  .splash-title,
+  .splash-subtitle,
+  .splash-status-container {
+    animation-duration: 0.1s !important;
+    animation-delay: 0s !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animated-route-line {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .splash-progress-fill {
+    width: 100% !important;
+    animation: none !important;
+  }
+}

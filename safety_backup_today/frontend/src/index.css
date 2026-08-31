@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+:root, [data-theme="dark"] {
+  /* Core Theme Dark Palette */
+  --bg-app: #090d16;
+  --bg-surface: #111827;
+  --bg-sidebar: rgba(15, 23, 42, 0.85);
+  --bg-card: rgba(30, 41, 59, 0.55);
+  --bg-card-hover: rgba(30, 41, 59, 0.75);
+  --bg-card-active: rgba(59, 130, 246, 0.12);
+  --bg-input: rgba(0, 0, 0, 0.25);
+  --bg-input-focus: rgba(0, 0, 0, 0.4);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-hover: rgba(255, 255, 255, 0.18);
+  --border-glow: rgba(59, 130, 246, 0.35);
+  
+  /* Text Colors */
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  
+  /* Brand Accent Colors */
+  --color-primary: #3b82f6;        /* Modern Blue */
+  --color-primary-hover: #2563eb;
+  --color-secondary: #10b981;      /* Emerald Green */
+  --color-accent: #8b5cf6;         /* Purple Accent */
+  
+  /* Traffic Status Colors (STRICT) */
+  --traffic-green: #10b981;        /* Low traffic ONLY */
+  --traffic-orange: #f97316;       /* Normal/Moderate traffic (Amber/Orange) */
+  --traffic-red: #ef4444;          /* High/Heavy traffic */
+  
+  /* Route Polylines & Legend */
+  --route-fastest: #3b82f6;        /* Fastest Route: Blue */
+  --route-balanced: #f59e0b;       /* Balanced Route: Amber */
+  --route-slow: #8b5cf6;           /* Low Traffic/Slow Route: Purple */
+
+  /* Modal Overlay */
+  --bg-modal-overlay: rgba(0, 0, 0, 0.65);
+
+  /* Navbar */
+  --bg-navbar: rgba(15, 23, 42, 0.85);
+
+  /* Landing Page Background */
+  --bg-landing-gradient: radial-gradient(circle at 50% 0%, #11172a 0%, #090d16 65%, #05070d 100%);
+  --hero-glow-1: rgba(59, 130, 246, 0.12);
+  --hero-glow-2: rgba(168, 85, 247, 0.08);
+  --hero-badge-bg: rgba(15, 23, 42, 0.8);
+  --hero-badge-text: #38bdf8;
+  --hero-badge-border: rgba(56, 189, 248, 0.3);
+
+  /* Card Shadows */
+  --shadow-card: 0 12px 32px 0 rgba(0, 0, 0, 0.35);
+
+  /* UI Transitions */
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="light"] {
+  /* Core Theme Light Palette */
+  --bg-app: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-card-hover: #ffffff;
+  --bg-card-active: #eff6ff;
+  --bg-input: #e2e8f0;
+  --bg-input-focus: #ffffff;
+  --border-glass: #cbd5e1;
+  --border-glass-hover: #94a3b8;
+  --border-glow: rgba(37, 99, 235, 0.4);
+
+  /* Text Colors - High Contrast for Light Mode */
+  --text-primary: #0f172a;        /* Very dark slate for maximum header/title clarity */
+  --text-secondary: #334155;      /* Dark slate for secondary descriptions & labels */
+  --text-muted: #475569;          /* Deep slate-gray for small text & unit labels */
+
+  /* Brand Accent Colors */
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1e40af;
+  --color-secondary: #047857;
+  --color-accent: #6d28d9;
+
+  /* Traffic Status Colors (High Contrast in Light Mode) */
+  --traffic-green: #047857;
+  --traffic-orange: #c2410c;
+  --traffic-red: #b91c1c;
+
+  /* Route Polylines */
+  --route-fastest: #1d4ed8;
+  --route-balanced: #d97706;
+  --route-slow: #6d28d9;
+
+  /* Modal Overlay */
+  --bg-modal-overlay: rgba(15, 23, 42, 0.45);
+
+  /* Navbar */
+  --bg-navbar: rgba(255, 255, 255, 0.95);
+
+  /* Landing Page Background */
+  --bg-landing-gradient: radial-gradient(circle at 50% 0%, #ffffff 0%, #f1f5f9 65%, #e2e8f0 100%);
+  --hero-glow-1: rgba(37, 99, 235, 0.08);
+  --hero-glow-2: rgba(124, 58, 237, 0.06);
+  --hero-badge-bg: #ffffff;
+  --hero-badge-text: #1d4ed8;
+  --hero-badge-border: #93c5fd;
+
+  /* Card Shadows */
+  --shadow-card: 0 4px 16px 0 rgba(0, 0, 0, 0.06);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+h1, h2, h3, h4, h5, h6, .brand-font {
+  font-family: 'Outfit', sans-serif;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.5);
+}
+
+/* Premium Glassmorphism Classes */
+.glass-panel {
+  background: var(--bg-sidebar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-card:hover {
+  border-color: var(--border-glass-hover);
+  box-shadow: var(--shadow-card);
+}

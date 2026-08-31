@@ -5,15 +5,15 @@ const SplashScreen = ({ onFinish }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    // Hold intro sequence for ~4.0s before fading out
+    // Hold complete intro sequence for 2.0s before starting exit fade-out
     const timer = setTimeout(() => {
       setIsFadingOut(true);
-    }, 4000);
+    }, 2000);
 
-    // After 0.6s fade-out, notify parent to unmount splash screen
+    // After 0.4s exit fade-out (total 2.4s), notify parent to unmount splash screen
     const finishTimer = setTimeout(() => {
       if (onFinish) onFinish();
-    }, 4600);
+    }, 2400);
 
     return () => {
       clearTimeout(timer);
@@ -25,7 +25,7 @@ const SplashScreen = ({ onFinish }) => {
     setIsFadingOut(true);
     setTimeout(() => {
       if (onFinish) onFinish();
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -130,28 +130,14 @@ const SplashScreen = ({ onFinish }) => {
 
           {/* Moving Traffic Vehicle Dots along paths */}
           <g className="traffic-vehicle-dots">
-            {/* Route 1 Vehicles */}
             <circle r="4" fill="#60a5fa" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="3.2s" repeatCount="indefinite" path="M 100 150 L 350 150 C 450 150, 500 200, 500 300 C 500 400, 550 450, 650 450 L 900 450" />
+              <animateMotion dur="2.0s" repeatCount="indefinite" path="M 100 150 L 350 150 C 450 150, 500 200, 500 300 C 500 400, 550 450, 650 450 L 900 450" />
             </circle>
             <circle r="3" fill="#38bdf8" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="3.2s" begin="1.2s" repeatCount="indefinite" path="M 100 150 L 350 150 C 450 150, 500 200, 500 300 C 500 400, 550 450, 650 450 L 900 450" />
+              <animateMotion dur="2.0s" begin="0.8s" repeatCount="indefinite" path="M 100 150 L 350 150 C 450 150, 500 200, 500 300 C 500 400, 550 450, 650 450 L 900 450" />
             </circle>
-
-            {/* Route 2 Vehicles */}
             <circle r="4.5" fill="#34d399" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="4s" repeatCount="indefinite" path="M 200 550 L 200 350 C 200 250, 300 150, 500 150 C 700 150, 800 250, 800 350 L 800 550" />
-            </circle>
-            <circle r="3" fill="#10b981" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="4s" begin="1.8s" repeatCount="indefinite" path="M 200 550 L 200 350 C 200 250, 300 150, 500 150 C 700 150, 800 250, 800 350 L 800 550" />
-            </circle>
-
-            {/* Route 3 Vehicles */}
-            <circle r="4" fill="#c084fc" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="3.6s" begin="0.5s" repeatCount="indefinite" path="M 100 450 L 350 450 C 420 450, 500 400, 500 300 C 500 200, 580 150, 650 150 L 900 150" />
-            </circle>
-            <circle r="3.5" fill="#f472b6" filter="url(#glow)" className="traffic-dot">
-              <animateMotion dur="3.6s" begin="2.2s" repeatCount="indefinite" path="M 100 450 L 350 450 C 420 450, 500 400, 500 300 C 500 200, 580 150, 650 150 L 900 150" />
+              <animateMotion dur="2.4s" repeatCount="indefinite" path="M 200 550 L 200 350 C 200 250, 300 150, 500 150 C 700 150, 800 250, 800 350 L 800 550" />
             </circle>
           </g>
         </svg>
@@ -159,7 +145,6 @@ const SplashScreen = ({ onFinish }) => {
 
       {/* Central Content Box */}
       <div className="splash-center-content">
-        {/* Animated App Logo matching existing brand box */}
         <div className="splash-logo-wrapper">
           <div className="splash-logo-glow-ring"></div>
           <div className="splash-logo-box">
@@ -169,8 +154,8 @@ const SplashScreen = ({ onFinish }) => {
 
         {/* Text Details */}
         <div className="splash-text-container">
-          <h1 className="splash-title">Smart Traffic Prediction</h1>
-          <p className="splash-subtitle">AI-Powered Traffic Intelligence</p>
+          <h1 className="splash-title">SMART TRAFFIC</h1>
+          <p className="splash-subtitle">AI-POWERED TRAFFIC PREDICTION</p>
         </div>
 
         {/* Bottom Loading Bar / Status Indicator */}

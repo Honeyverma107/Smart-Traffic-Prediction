@@ -1,24 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 const PermissionDialog = ({ onPermission }) => {
-  const [isLocating, setIsLocating] = useState(false);
 
-  const handleAllow = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      onPermission(false);
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        const timestamp = new Date(position.timestamp || Date.now()).toISOString();
-
-        console.log(`[PermissionDialog Geolocation Success] Lat: ${latitude}, Lng: ${longitude}, Accuracy: ${accuracy}m, Timestamp: ${timestamp}`);
-
-        let address = `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+  const handleAllow = async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log(`PermissionDialog - Current location: ${latitude}, ${longitude}`);
+        let address = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         try {
           const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`;
           const resp = await fetch(url);
@@ -27,59 +16,41 @@ const PermissionDialog = ({ onPermission }) => {
             address = data.display_name;
           }
         } catch (e) {
-          console.warn('[PermissionDialog] Reverse geocode error:', e);
+          console.warn('Reverse geocode failed for current location:', e);
         }
 
-        setIsLocating(false);
         onPermission(true, {
           latitude,
           longitude,
-          accuracy,
-          timestamp,
           address,
         });
-      },
-      (error) => {
-        console.warn(`[PermissionDialog Geolocation Error] Code ${error.code}: ${error.message}`);
-        setIsLocating(false);
-        onPermission(false, null, error.message);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
-    );
+      }, () => {
+        onPermission(true, null);
+      }, { enableHighAccuracy: true });
+    } else {
+      onPermission(true, null);
+    }
   };
 
   return (
     <>
-      <div className="modal-overlay" onClick={() => !isLocating && onPermission(false)}></div>
-      <div className="permission-dialog glass-card">
-        <div className="permission-icon-box">
-          <span className="material-symbols-outlined permission-icon">my_location</span>
-        </div>
-        <h3>Enable Precise Location?</h3>
-        <p>
-          Allow location access to automatically set your starting point, calculate local traffic congestion, and receive accurate ETAs.
-        </p>
+      <div className="modal-overlay"></div>
+      <div className="permission-dialog">
+        <span className="material-symbols-outlined permission-icon">my_location</span>
+        <h3>Use Location Service?</h3>
+        <p>Enable precise location access to automatically set your starting point, view live local traffic congestion, and calculate accurate ETAs.</p>
         <div className="permission-buttons">
           <button 
-            type="button"
-            className="permission-btn deny-btn" 
+            className="permission-btn permission-deny" 
             onClick={() => onPermission(false)}
-            disabled={isLocating}
           >
-            Skip for Now
+            Skip
           </button>
           <button 
-            type="button"
-            id="allowAccessBtn"
-            className="permission-btn allow-btn" 
+            className="permission-btn permission-allow" 
             onClick={handleAllow}
-            disabled={isLocating}
           >
-            {isLocating ? 'Detecting Location...' : 'Allow Access'}
+            Allow Access
           </button>
         </div>
       </div>

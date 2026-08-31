@@ -1,39 +1,67 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Core Theme Dark Palette */
-  --bg-app: #090d16;
-  --bg-surface: #111827;
-  --bg-sidebar: rgba(15, 23, 42, 0.82);
-  --bg-card: rgba(30, 41, 59, 0.55);
-  --bg-card-active: rgba(59, 130, 246, 0.12);
+  /* Theme Colors - Dark Cyberpunk Theme */
+  --bg-app: #030712;
+  --bg-sidebar: rgba(11, 15, 26, 0.7);
+  --bg-card: rgba(17, 24, 39, 0.55);
   --border-glass: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(59, 130, 246, 0.35);
+  --glow-shadow: rgba(99, 102, 241, 0.2);
   
   /* Text Colors */
-  --text-primary: #f9fafb;
+  --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
   
-  /* Brand Accent Colors */
-  --color-primary: #3b82f6;        /* Modern Blue */
-  --color-primary-hover: #2563eb;
-  --color-secondary: #10b981;      /* Emerald Green */
-  --color-accent: #8b5cf6;         /* Purple Accent */
+  /* Accent Colors */
+  --color-primary: #3b82f6;      /* Blue */
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #10b981;    /* Emerald Green */
+  --color-accent: #8b5cf6;       /* Purple/Violet */
   
-  /* Traffic Status Colors (STRICT) */
-  --traffic-green: #10b981;        /* Low traffic ONLY */
-  --traffic-orange: #f97316;       /* Normal/Moderate traffic (Amber/Orange) */
-  --traffic-red: #ef4444;          /* High/Heavy traffic */
+  /* Traffic Status Colors */
+  --traffic-green: #10b981;      /* Low traffic */
+  --traffic-orange: #f59e0b;     /* Medium traffic */
+  --traffic-red: #ef4444;        /* Heavy traffic */
   
-  /* Route Polylines & Legend */
-  --route-fastest: #3b82f6;        /* Fastest Route: Blue */
-  --route-balanced: #f59e0b;       /* Balanced Route: Amber */
-  --route-slow: #8b5cf6;           /* Low Traffic/Slow Route: Purple */
+  /* Route Legend Colors */
+  --route-fastest: #60a5fa;      /* Blue */
+  --route-balanced: #f59e0b;     /* Amber */
+  --route-slow: #a78bfa;         /* Violet */
 
   /* UI Transitions */
-  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="light"] {
+  /* Theme Colors - Light Modern Theme */
+  --bg-app: #f8fafc;
+  --bg-sidebar: rgba(255, 255, 255, 0.9);
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --glow-shadow: rgba(37, 99, 235, 0.12);
+
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  /* Accent Colors */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #059669;
+  --color-accent: #7c3aed;
+
+  /* Traffic Status Colors */
+  --traffic-green: #059669;
+  --traffic-orange: #d97706;
+  --traffic-red: #dc2626;
+
+  /* Route Legend Colors */
+  --route-fastest: #2563eb;
+  --route-balanced: #d97706;
+  --route-slow: #7c3aed;
 }
 
 * {
@@ -44,17 +72,11 @@
 
 html, body {
   height: 100%;
-  width: 100%;
   background-color: var(--bg-app);
   color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-h1, h2, h3, h4, h5, h6, .brand-font {
-  font-family: 'Outfit', sans-serif;
 }
 
 code {
@@ -72,20 +94,21 @@ code {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
 }
 
-/* Premium Glassmorphism Classes */
+/* Glassmorphism Classes */
 .glass-panel {
   background: var(--bg-sidebar);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-glass);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
 }
 
 .glass-card {
@@ -93,11 +116,10 @@ code {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
-  border-radius: 16px;
   transition: all var(--transition-normal);
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
 }

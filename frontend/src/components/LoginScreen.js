@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTheme } from '../ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 
-const LoginScreen = ({ onLogin }) => {
+const LoginScreen = ({ onLogin, onBackToLanding }) => {
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authTab, setAuthTab] = useState('otp'); // 'otp' or 'password'
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
@@ -21,13 +21,43 @@ const LoginScreen = ({ onLogin }) => {
     setTimeout(() => setMessage(null), 7000);
   }, []);
 
+  const safeFetchJson = async (endpointPath, bodyData) => {
+    const payload = JSON.stringify(bodyData);
+    const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+
+    let response;
+    try {
+      response = await fetch(endpointPath, { method: 'POST', headers, body: payload });
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || !contentType.includes("application/json")) {
+        throw new Error("Proxy fallback needed");
+      }
+    } catch (proxyErr) {
+      try {
+        const fullUrl = `http://127.0.0.1:8000${endpointPath}`;
+        response = await fetch(fullUrl, { method: 'POST', headers, body: payload });
+      } catch (directErr) {
+        throw new Error("Unable to connect to backend server. Please verify Django is running at http://127.0.0.1:8000.");
+      }
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const htmlText = await response.text();
+      console.error(`Non-JSON response from ${endpointPath}:`, htmlText.slice(0, 200));
+      throw new Error(`Server returned non-JSON response (${response.status}). Please verify Django backend service.`);
+    }
+
+    const data = await response.json();
+    return { ok: response.ok, status: response.status, data };
+  };
+
   const handleSendOTP = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       showNotification("Please enter your email address.", true);
       return;
     }
-    console.log(`[Frontend SendOTP] Triggered at ${new Date().toISOString()} | Email: '${cleanEmail}'`);
     setEmail(cleanEmail);
     setOtp('');
     setIsLoading(true);
@@ -35,14 +65,8 @@ const LoginScreen = ({ onLogin }) => {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/send-otp/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail })
-      });
-
-      const data = await response.json();
-      if (response.ok) {
+      const { ok, data } = await safeFetchJson('/api/send-otp/', { email: cleanEmail });
+      if (ok) {
         setOtpSent(true);
         showNotification(data.message || "Verification code sent successfully.");
       } else {
@@ -61,13 +85,8 @@ const LoginScreen = ({ onLogin }) => {
   const handleVerifyOTP = async () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanOtp = otp.trim();
-    const isOtpEmpty = !cleanOtp;
-    const otpLength = cleanOtp.length;
-    const timestamp = new Date().toISOString();
 
-    console.log(`[Frontend VerifyOTP] Triggered at ${timestamp} | Target Email: '${cleanEmail}' | OTP Input Length: ${otpLength} | Is OTP State Empty: ${isOtpEmpty}`);
-
-    if (isOtpEmpty) {
+    if (!cleanOtp) {
       showNotification("Please enter the 6-digit verification code.", true);
       return;
     }
@@ -76,22 +95,15 @@ const LoginScreen = ({ onLogin }) => {
     setMessage(null);
 
     try {
-      const payload = { email: cleanEmail, otp: cleanOtp };
-      console.log(`[Frontend VerifyOTP Payload] Email: '${payload.email}' | OTP Payload Length: ${payload.otp ? payload.otp.length : 0}`);
-
-      const response = await fetch('/api/verify-otp/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (response.ok) {
+      const { ok, data } = await safeFetchJson('/api/verify-otp/', { email: cleanEmail, otp: cleanOtp });
+      if (ok) {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userEmail', data.email);
         showNotification(data.message || "Verification successful! Redirecting...");
         setTimeout(() => {
-          onLogin(data.email, data.token);
+          if (typeof onLogin === 'function') {
+            onLogin(data.email, data.token);
+          }
         }, 600);
       } else {
         throw new Error(data.error || "Unable to verify the code. Please try again.");
@@ -105,27 +117,6 @@ const LoginScreen = ({ onLogin }) => {
     }
   };
 
-  const handlePasswordLogin = () => {
-    if (!email || !password) {
-      showNotification("Please enter both email and password.", true);
-      return;
-    }
-
-    if (password !== "khushi") {
-      showNotification("Incorrect password. Please try again.", true);
-      return;
-    }
-
-    const token = `password_session_${Date.now()}`;
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('userEmail', email);
-    showNotification("Login successful!");
-    setTimeout(() => {
-      onLogin(email, token);
-    }, 600);
-  };
-
-  // Real Google Sign-In Callback Handler
   const handleGoogleCredentialResponse = useCallback(async (googleResponse) => {
     if (!googleResponse || !googleResponse.credential) {
       showNotification("Failed to receive Google authentication token.", true);
@@ -138,27 +129,16 @@ const LoginScreen = ({ onLogin }) => {
     setMessage(null);
 
     try {
-      let response;
-      try {
-        response = await fetch('/api/google-login/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: realIdToken })
-        });
-      } catch (netErr) {
-        response = await fetch('http://127.0.0.1:8000/api/google-login/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: realIdToken })
-        });
-      }
-
-      const data = await response.json();
-      if (response.ok) {
+      const { ok, data } = await safeFetchJson('/api/google-login/', { token: realIdToken });
+      if (ok) {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userEmail', data.email);
         showNotification(`Signed in as ${data.email}`);
-        setTimeout(() => onLogin(data.email, data.token), 600);
+        setTimeout(() => {
+          if (typeof onLogin === 'function') {
+            onLogin(data.email, data.token);
+          }
+        }, 600);
       } else {
         throw new Error(data.error || "Google authentication failed.");
       }
@@ -171,12 +151,15 @@ const LoginScreen = ({ onLogin }) => {
     }
   }, [onLogin, showNotification]);
 
-  // Initialize Real Google Identity Services (GIS) safely
   useEffect(() => {
-    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
-    const isValidClientId = clientId && clientId.trim() !== '' && clientId !== 'your_google_client_id_here';
+    const rawClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+    const clientId = rawClientId.replace(/['"]/g, '').trim();
+    const isValidClientId = clientId && clientId !== '' && clientId !== 'your_google_client_id_here';
+
+    console.log("[Google OAuth Debug] REACT_APP_GOOGLE_CLIENT_ID loaded:", clientId ? `${clientId.slice(0, 15)}...` : 'EMPTY / NOT CONFIGURED');
 
     if (!isValidClientId) {
+      console.warn("[Google OAuth Warning] Invalid or missing REACT_APP_GOOGLE_CLIENT_ID in frontend/.env.");
       setIsGsiRendered(false);
       return;
     }
@@ -185,7 +168,7 @@ const LoginScreen = ({ onLogin }) => {
       if (window.google && window.google.accounts && window.google.accounts.id) {
         try {
           window.google.accounts.id.initialize({
-            client_id: clientId.trim(),
+            client_id: clientId,
             callback: handleGoogleCredentialResponse,
             auto_select: false,
             cancel_on_tap_outside: true,
@@ -202,6 +185,7 @@ const LoginScreen = ({ onLogin }) => {
               logo_alignment: 'left',
             });
             setIsGsiRendered(true);
+            console.log("[Google OAuth Success] Official Google Sign-In button rendered successfully.");
           }
         } catch (e) {
           console.warn("Google Sign-In initialization warning:", e);
@@ -209,137 +193,195 @@ const LoginScreen = ({ onLogin }) => {
       }
     };
 
-    if (window.google && window.google.accounts) {
-      setupGoogleSignIn();
+    // Ensure GIS script is present in DOM
+    const scriptId = 'google-gsi-client-script';
+    let scriptTag = document.getElementById(scriptId);
+
+    if (!scriptTag && (!window.google || !window.google.accounts)) {
+      scriptTag = document.createElement('script');
+      scriptTag.id = scriptId;
+      scriptTag.src = 'https://accounts.google.com/gsi/client';
+      scriptTag.async = true;
+      scriptTag.defer = true;
+      scriptTag.onload = () => {
+        console.log("[Google OAuth] Dynamic GSI script loaded.");
+        setupGoogleSignIn();
+      };
+      document.head.appendChild(scriptTag);
     } else {
-      const timer = setInterval(() => {
-        if (window.google && window.google.accounts) {
-          setupGoogleSignIn();
-          clearInterval(timer);
-        }
-      }, 250);
-      return () => clearInterval(timer);
+      setupGoogleSignIn();
     }
+
+    const timer = setInterval(() => {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        setupGoogleSignIn();
+        clearInterval(timer);
+      }
+    }, 250);
+
+    return () => clearInterval(timer);
   }, [handleGoogleCredentialResponse]);
 
   const handleCustomGoogleBtnClick = () => {
-    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
-    const isValidClientId = clientId && clientId.trim() !== '' && clientId !== 'your_google_client_id_here';
+    const rawClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+    const clientId = rawClientId.replace(/['"]/g, '').trim();
+    const isValidClientId = clientId && clientId !== '' && clientId !== 'your_google_client_id_here';
 
     if (!isValidClientId) {
-      showNotification("Please set a valid Google OAuth Client ID in frontend/.env (REACT_APP_GOOGLE_CLIENT_ID).", true);
+      showNotification("Google sign-in Client ID is not configured in frontend/.env. Please use Email OTP.", true);
       return;
     }
 
     if (window.google && window.google.accounts && window.google.accounts.id) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          if (googleBtnRef.current) {
-            const innerBtn = googleBtnRef.current.querySelector('div[role="button"]');
-            if (innerBtn) innerBtn.click();
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        console.log("[Google OAuth] Triggering Google prompt/authorization flow...");
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed()) {
+            console.warn("[Google OAuth Warning] OneTap prompt not displayed reason:", notification.getNotDisplayedReason());
+            showNotification("OneTap prompt hidden by browser settings. Click Google button directly.", false);
+          } else if (notification.isSkippedMoment()) {
+            console.warn("[Google OAuth Warning] OneTap skipped reason:", notification.getSkippedReason());
           }
-        }
-      });
+        });
+      } catch (err) {
+        console.error("Google prompt error:", err);
+      }
     } else {
-      showNotification("Google Identity Services is loading. Please try again.", true);
+      showNotification("Google Identity Services is initializing. Please wait a moment...", true);
     }
   };
 
   return (
     <div id="loginScreen">
-      {/* Background Ambient Glows */}
+      {/* Background AI Smart-City & Traffic Network Layer */}
+      <div className="login-bg-grid"></div>
+      
+      {/* City Skyline & Traffic Network SVG Artwork */}
+      <div className="login-bg-routes-svg">
+        <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" className="bg-traffic-routes">
+          {/* Faint City Skyline Silhouettes */}
+          <path d="M 0 900 L 0 720 L 60 720 L 60 680 L 110 680 L 110 740 L 180 740 L 180 620 L 240 620 L 240 750 L 320 750 L 320 900 Z" fill="var(--skyline-fill)" opacity="0.12" />
+          <path d="M 1080 900 L 1080 700 L 1140 700 L 1140 640 L 1220 640 L 1220 760 L 1300 760 L 1300 680 L 1400 680 L 1400 900 Z" fill="var(--skyline-fill)" opacity="0.12" />
+
+          {/* Glowing Animated Route Curves */}
+          <path d="M -100 350 Q 350 150 700 500 T 1500 650" fill="none" stroke="url(#routeGrad1)" strokeWidth="2.5" strokeDasharray="6 8" className="animated-bg-path-1" />
+          <path d="M -100 650 Q 450 750 800 300 T 1500 250" fill="none" stroke="url(#routeGrad2)" strokeWidth="2.5" strokeDasharray="4 6" className="animated-bg-path-2" />
+
+          {/* Node Pin Accents */}
+          <circle cx="350" cy="240" r="6" fill="#10b981" opacity="0.75" />
+          <circle cx="350" cy="240" r="14" fill="none" stroke="#10b981" opacity="0.3" />
+          
+          <circle cx="1050" cy="620" r="6" fill="#ef4444" opacity="0.75" />
+          <circle cx="1050" cy="620" r="14" fill="none" stroke="#ef4444" opacity="0.3" />
+
+          <defs>
+            <linearGradient id="routeGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0284c7" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.4" />
+            </linearGradient>
+            <linearGradient id="routeGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.4" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
       <div className="login-glow glow-blue"></div>
       <div className="login-glow glow-purple"></div>
 
-      <div className="glass-card login-card">
-        <div className="login-logo-container">
-          <div className="login-logo">
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>traffic</span>
+      {onBackToLanding && (
+        <button type="button" className="auth-back-btn" onClick={onBackToLanding} title="Back to Home">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px', marginRight: '6px' }}>arrow_back</span> Back
+        </button>
+      )}
+
+      <button 
+        type="button"
+        className="landing-theme-toggle-btn" 
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 100 }}
+      >
+        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+      </button>
+
+      <div className="auth-card-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
+        <div className="glass-card login-card">
+          {/* Minimal Traffic Light Symbol */}
+          <div className="traffic-light-symbol">
+            <span className="traffic-dot red"></span>
+            <span className="traffic-dot yellow"></span>
+            <span className="traffic-dot green pulse"></span>
           </div>
-        </div>
 
-        <h2 className="brand-font">SMART TRAFFIC</h2>
-        <p className="login-subtitle">Predict Traffic. Choose Smarter Routes.</p>
-
-        {message && (
-          <div className={`auth-alert ${isError ? 'error' : 'success'}`}>
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-              {isError ? 'error' : 'check_circle'}
-            </span>
-            <span>{message}</span>
+          <div className="login-brand-meta">
+            <h4 className="brand-font login-brand-title">SMART TRAFFIC</h4>
+            <p className="login-subtitle">AI-Powered Traffic Forecasting & Route Optimizer</p>
           </div>
-        )}
 
-        {isLoading && (
-          <div className="auth-loading-state">
-            <span className="loading-spinner"></span>
-            <span>{loadingText || 'Processing...'}</span>
+          {/* AI Traffic Status Indicator */}
+          <div className="ai-traffic-status-pill">
+            <span className="status-live-dot"></span>
+            <span>AI Traffic Intelligence Active</span>
           </div>
-        )}
 
-        <div className="auth-tabs">
-          <button 
-            className={`auth-tab ${authTab === 'otp' ? 'active' : ''}`}
-            onClick={() => { setAuthTab('otp'); setMessage(null); }}
-          >
-            OTP Verification
-          </button>
-          <button 
-            className={`auth-tab ${authTab === 'password' ? 'active' : ''}`}
-            onClick={() => { setAuthTab('password'); setMessage(null); }}
-          >
-            Password Login
-          </button>
-        </div>
+          <h2 className="login-card-heading">Sign In</h2>
 
-        {/* Input Fields */}
-        <div className="login-input-container">
-          <label>Email Address</label>
-          <div className="input-field-wrapper">
-            <span className="material-symbols-outlined input-field-icon">mail</span>
-            <input
-              type="email"
-              className="login-input"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !otpSent && !isLoading && handleSendOTP()}
-              disabled={isLoading || (authTab === 'otp' && otpSent)}
-            />
+          {/* Decorative Route Accent Line with Endpoint Dots */}
+          <div className="decorative-route-line">
+            <span className="route-badge-dot source" title="Source"></span>
+            <span className="route-badge-path"></span>
+            <span className="route-badge-dot dest" title="Destination"></span>
           </div>
-        </div>
 
-        {authTab === 'password' ? (
+          {message && (
+            <div className={`auth-alert ${isError ? 'error' : 'success'}`}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                {isError ? 'error' : 'check_circle'}
+              </span>
+              <span>{message}</span>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="auth-loading-state">
+              <span className="loading-spinner"></span>
+              <span>{loadingText || 'Processing...'}</span>
+            </div>
+          )}
+
+          {/* Input Fields */}
           <div className="login-input-container">
-            <label>Password</label>
-            <div className="input-field-wrapper">
-              <span className="material-symbols-outlined input-field-icon">lock</span>
+            <label style={{ display: 'block', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px' }}>Email Address</label>
+            <div className="input-field-wrapper" style={{ position: 'relative' }}>
+              <span className="material-symbols-outlined input-field-icon" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: 'var(--text-muted)' }}>mail</span>
               <input
-                type={showPassword ? "text" : "password"}
+                type="email"
                 className="login-input"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePasswordLogin()}
-                disabled={isLoading}
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !otpSent && !isLoading && handleSendOTP()}
+                disabled={isLoading || otpSent}
+                style={{ width: '100%', paddingLeft: '44px', height: '52px', borderRadius: '12px', fontSize: '0.92rem' }}
               />
-              <button 
-                type="button" 
-                className="password-toggle-btn" 
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                <span className="material-symbols-outlined">
-                  {showPassword ? "visibility_off" : "visibility"}
-                </span>
-              </button>
             </div>
           </div>
-        ) : (
-          otpSent && (
-            <div className="login-input-container animated-slide">
-              <label>6-Digit Verification Code</label>
-              <div className="input-field-wrapper">
-                <span className="material-symbols-outlined input-field-icon">pin</span>
+
+          {otpSent && (
+            <div className="login-input-container animated-slide" style={{ marginTop: '16px' }}>
+              <label style={{ display: 'block', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px' }}>6-Digit Verification Code</label>
+              <div className="input-field-wrapper" style={{ position: 'relative' }}>
+                <span className="material-symbols-outlined input-field-icon" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: 'var(--text-muted)' }}>pin</span>
                 <input
                   type="text"
                   maxLength="6"
@@ -351,25 +393,20 @@ const LoginScreen = ({ onLogin }) => {
                   onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleVerifyOTP()}
                   disabled={isLoading}
                   autoFocus
+                  style={{ width: '100%', paddingLeft: '44px', height: '52px', borderRadius: '12px', fontSize: '0.92rem' }}
                 />
               </div>
             </div>
-          )
-        )}
+          )}
 
-        {/* Submit Buttons */}
-        {authTab === 'password' ? (
-          <button type="button" className="login-button primary-btn" onClick={handlePasswordLogin} disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        ) : (
-          !otpSent ? (
-            <button type="button" className="login-button primary-btn" onClick={handleSendOTP} disabled={isLoading}>
-              {isLoading ? 'Sending...' : 'Send Verification OTP'}
+          {/* Submit Buttons */}
+          {!otpSent ? (
+            <button type="button" className="login-button primary-btn" onClick={handleSendOTP} disabled={isLoading} style={{ height: '52px', borderRadius: '12px', fontSize: '0.95rem' }}>
+              {isLoading ? 'Sending OTP...' : 'Send Verification OTP'}
             </button>
           ) : (
             <div className="otp-action-group">
-              <button type="button" className="login-button primary-btn" onClick={handleVerifyOTP} disabled={isLoading}>
+              <button type="button" className="login-button primary-btn" onClick={handleVerifyOTP} disabled={isLoading} style={{ height: '52px', borderRadius: '12px', fontSize: '0.95rem' }}>
                 {isLoading ? 'Verifying...' : 'Verify & Login'}
               </button>
               <button 
@@ -381,32 +418,56 @@ const LoginScreen = ({ onLogin }) => {
                 Change Email Address
               </button>
             </div>
-          )
-        )}
+          )}
 
-        <div className="auth-divider">
-          <span>or sign in with</span>
+          <div className="auth-divider">
+            <span>or continue with</span>
+          </div>
+
+          {/* Single Google Sign-In Container */}
+          <div className="google-auth-wrapper">
+            <div 
+              ref={googleBtnRef} 
+              className="google-btn-container"
+              style={{ 
+                display: isGsiRendered ? 'flex' : 'none', 
+                justifyContent: 'center', 
+                width: '100%',
+                minHeight: '52px'
+              }}
+            ></div>
+            
+            {!isGsiRendered && (
+              <button 
+                type="button"
+                className="google-btn google-login-btn" 
+                onClick={handleCustomGoogleBtnClick}
+                disabled={isLoading}
+                style={{ height: '52px', borderRadius: '12px', fontSize: '0.92rem' }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  className="google-login-icon"
+                  style={{ width: '18px', height: '18px', minWidth: '18px', minHeight: '18px', flexShrink: 0, marginRight: '8px', display: 'inline-block', verticalAlign: 'middle' }}
+                >
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Single Google Sign-In Container */}
-        <div className="google-auth-wrapper">
-          <div ref={googleBtnRef} className="google-btn-container"></div>
-          
-          {!isGsiRendered && (
-            <button 
-              type="button"
-              className="google-btn" 
-              onClick={handleCustomGoogleBtnClick}
-              disabled={isLoading}
-            >
-              <img 
-                src="/google.jpg" 
-                alt="Google" 
-                onError={(e) => { e.target.src = 'https://lh3.googleusercontent.com/COxitspgUX1sW9mO58H1Co1HS5C-1L35J7Meb-CI-Zif2a45sw4tOBglvOKSm2YvDQ'; }} 
-              />
-              Continue with Google
-            </button>
-          )}
+        {/* Bottom Trust & Security Section */}
+        <div className="auth-trust-footer">
+          <p className="trust-badges">🛡️ Secure &bull; Reliable &bull; Intelligent</p>
+          <p className="trust-tagline">Smarter Routes, Better Journeys</p>
         </div>
       </div>
     </div>
