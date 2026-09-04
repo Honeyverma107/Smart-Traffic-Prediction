@@ -891,7 +891,7 @@ const TrafficPoliceControlCenter = ({ onBackToNavigation }) => {
 
               {/* VIEW 3: AI AUTO-CHALLAN MODULE ONLY */}
               {activeTab === 'auto-challan' && (
-                <div className="police-auto-challan-container" style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div className="police-auto-challan-container" style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                   <AIAutoChallan />
                 </div>
               )}

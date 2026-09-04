@@ -667,7 +667,7 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
       </div>
 
       {/* 3. FULL-WIDTH MAIN PAGE CONTENT */}
-      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+      <main style={{ flex: 1, minWidth: 0 }}>
         {renderActiveView()}
       </main>
 
