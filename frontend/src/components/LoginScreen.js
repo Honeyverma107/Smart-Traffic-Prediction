@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTheme } from '../ThemeContext';
-import { Sun, Moon } from 'lucide-react';
 
-const LoginScreen = ({ onLogin, onBackToLanding }) => {
-  const { theme, toggleTheme } = useTheme();
+const LoginScreen = ({ onLogin, onBackToLanding, initialRole = 'USER' }) => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(initialRole); // 'USER' or 'TRAFFIC_POLICE'
+
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [message, setMessage] = useState(null);
@@ -15,10 +14,34 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
 
   const googleBtnRef = useRef(null);
 
+
   const showNotification = useCallback((msg, error = false) => {
-    setMessage(msg);
+    let text = "Google sign-in failed. Please try again.";
+    if (typeof msg === 'string' && msg.trim() && msg !== 'undefined' && msg !== 'null') {
+      text = msg;
+    } else if (msg && typeof msg === 'object') {
+      text = msg.message || msg.error || (typeof msg.toString === 'function' && msg.toString() !== '[object Object]' ? msg.toString() : "Google sign-in failed.");
+    }
+    if (text === 'undefined' || text === 'null') {
+      text = "Google sign-in failed. Please try again.";
+    }
+    setMessage(text);
     setIsError(error);
     setTimeout(() => setMessage(null), 7000);
+  }, []);
+
+  const getValidatedClientId = useCallback(() => {
+    const raw = (process.env.REACT_APP_GOOGLE_CLIENT_ID || '').toString();
+    const cleaned = raw.replace(/['"]/g, '').trim();
+    if (
+      !cleaned ||
+      cleaned === 'undefined' ||
+      cleaned === 'null' ||
+      cleaned === 'your_google_client_id_here'
+    ) {
+      return null;
+    }
+    return cleaned;
   }, []);
 
   const safeFetchJson = async (endpointPath, bodyData) => {
@@ -102,7 +125,7 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
         showNotification(data.message || "Verification successful! Redirecting...");
         setTimeout(() => {
           if (typeof onLogin === 'function') {
-            onLogin(data.email, data.token);
+            onLogin(data.email, data.token, selectedRole);
           }
         }, 600);
       } else {
@@ -136,30 +159,32 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
         showNotification(`Signed in as ${data.email}`);
         setTimeout(() => {
           if (typeof onLogin === 'function') {
-            onLogin(data.email, data.token);
+            onLogin(data.email, data.token, selectedRole);
           }
         }, 600);
       } else {
-        throw new Error(data.error || "Google authentication failed.");
+
+        throw new Error(data?.error || "Google authentication failed.");
       }
     } catch (err) {
       console.error("Backend google-login failed:", err);
-      showNotification(err.message || "Failed to verify Google account.", true);
+      showNotification(err?.message || "Failed to verify Google account.", true);
     } finally {
       setIsLoading(false);
       setLoadingText('');
     }
-  }, [onLogin, showNotification]);
+  }, [onLogin, showNotification, selectedRole]);
+
 
   useEffect(() => {
-    const rawClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
-    const clientId = rawClientId.replace(/['"]/g, '').trim();
-    const isValidClientId = clientId && clientId !== '' && clientId !== 'your_google_client_id_here';
+    const clientId = getValidatedClientId();
+    const currentOrigin = window.location.origin;
 
-    console.log("[Google OAuth Debug] REACT_APP_GOOGLE_CLIENT_ID loaded:", clientId ? `${clientId.slice(0, 15)}...` : 'EMPTY / NOT CONFIGURED');
+    console.log("[Google OAuth Debug] REACT_APP_GOOGLE_CLIENT_ID loaded:", clientId ? `${clientId.slice(0, 15)}...` : 'NOT CONFIGURED');
+    console.log("[Google OAuth Debug] Current App Origin (must match Authorized JS Origin in Google Console):", currentOrigin);
 
-    if (!isValidClientId) {
-      console.warn("[Google OAuth Warning] Invalid or missing REACT_APP_GOOGLE_CLIENT_ID in frontend/.env.");
+    if (!clientId) {
+      console.warn("[Google OAuth Warning] Invalid or missing REACT_APP_GOOGLE_CLIENT_ID in environment.");
       setIsGsiRendered(false);
       return;
     }
@@ -220,15 +245,13 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
     }, 250);
 
     return () => clearInterval(timer);
-  }, [handleGoogleCredentialResponse]);
+  }, [handleGoogleCredentialResponse, getValidatedClientId]);
 
   const handleCustomGoogleBtnClick = () => {
-    const rawClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
-    const clientId = rawClientId.replace(/['"]/g, '').trim();
-    const isValidClientId = clientId && clientId !== '' && clientId !== 'your_google_client_id_here';
+    const clientId = getValidatedClientId();
 
-    if (!isValidClientId) {
-      showNotification("Google sign-in Client ID is not configured in frontend/.env. Please use Email OTP.", true);
+    if (!clientId) {
+      showNotification("Google Sign-In Client ID is not configured in frontend/.env. Please use Email OTP.", true);
       return;
     }
 
@@ -244,14 +267,17 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
         console.log("[Google OAuth] Triggering Google prompt/authorization flow...");
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed()) {
-            console.warn("[Google OAuth Warning] OneTap prompt not displayed reason:", notification.getNotDisplayedReason());
-            showNotification("OneTap prompt hidden by browser settings. Click Google button directly.", false);
+            const reason = notification.getNotDisplayedReason() || 'suppressed';
+            console.warn("[Google OAuth Warning] OneTap prompt not displayed reason:", reason);
+            showNotification("Google sign-in prompt blocked by browser. Please use Email OTP login.", true);
           } else if (notification.isSkippedMoment()) {
-            console.warn("[Google OAuth Warning] OneTap skipped reason:", notification.getSkippedReason());
+            const reason = notification.getSkippedReason() || 'skipped';
+            console.warn("[Google OAuth Warning] OneTap skipped reason:", reason);
           }
         });
       } catch (err) {
         console.error("Google prompt error:", err);
+        showNotification(err?.message || "Failed to initialize Google Sign-In.", true);
       }
     } else {
       showNotification("Google Identity Services is initializing. Please wait a moment...", true);
@@ -303,17 +329,6 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
         </button>
       )}
 
-      <button 
-        type="button"
-        className="landing-theme-toggle-btn" 
-        onClick={toggleTheme}
-        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 100 }}
-      >
-        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-      </button>
-
       <div className="auth-card-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
         <div className="glass-card login-card">
           {/* Minimal Traffic Light Symbol */}
@@ -359,8 +374,60 @@ const LoginScreen = ({ onLogin, onBackToLanding }) => {
             </div>
           )}
 
+          {/* Role Selector Pill Toggle */}
+          <div className="login-role-selector" style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', margin: '16px 0', width: '100%' }}>
+            <button
+              type="button"
+              className={`role-btn ${selectedRole === 'USER' ? 'active' : ''}`}
+              onClick={() => setSelectedRole('USER')}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '9px',
+                border: selectedRole === 'USER' ? '1.5px solid #2563eb' : '1px solid transparent',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                background: selectedRole === 'USER' ? '#ffffff' : 'transparent',
+                color: selectedRole === 'USER' ? '#2563eb' : '#64748b',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>👤</span>
+              <span>Commuter / User</span>
+            </button>
+            <button
+              type="button"
+              className={`role-btn ${selectedRole === 'TRAFFIC_POLICE' ? 'active' : ''}`}
+              onClick={() => setSelectedRole('TRAFFIC_POLICE')}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '9px',
+                border: selectedRole === 'TRAFFIC_POLICE' ? '1.5px solid #2563eb' : '1px solid transparent',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                background: selectedRole === 'TRAFFIC_POLICE' ? '#ffffff' : 'transparent',
+                color: selectedRole === 'TRAFFIC_POLICE' ? '#2563eb' : '#64748b',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>👮</span>
+              <span>Traffic Police</span>
+            </button>
+          </div>
+
           {/* Input Fields */}
+
           <div className="login-input-container">
+
             <label style={{ display: 'block', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px' }}>Email Address</label>
             <div className="input-field-wrapper" style={{ position: 'relative' }}>
               <span className="material-symbols-outlined input-field-icon" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: 'var(--text-muted)' }}>mail</span>

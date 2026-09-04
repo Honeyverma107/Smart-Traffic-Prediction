@@ -122,3 +122,62 @@ class ChallanRecord(models.Model):
             "detection_summary": f"Vehicle ID #{self.tracking_id} ({self.vehicle_type}) crossed the stop line while the signal was {self.signal_state}."
         }
 
+
+class TrafficPoliceAlert(models.Model):
+    alert_id = models.CharField(max_length=64, unique=True, db_index=True)
+    location = models.CharField(max_length=255)
+    source = models.CharField(max_length=255, blank=True, default="")
+    destination = models.CharField(max_length=255, blank=True, default="")
+    traffic_level = models.CharField(max_length=20, default="HIGH")
+    confidence = models.FloatField(default=0.91)
+    vehicle_count = models.IntegerField(default=126)
+    historical_baseline = models.IntegerField(default=82)
+    recent_traffic = models.IntegerField(default=118)
+    expected_duration = models.CharField(max_length=50, default="20–30 min")
+    detected_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    status = models.CharField(max_length=50, default="ALERT SENT")
+    recommended_action = models.TextField(default="Deploy traffic personnel to manage vehicle flow.")
+    assigned_unit = models.CharField(max_length=100, blank=True, null=True, default=None)
+
+    class Meta:
+        ordering = ['-detected_at']
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "alert_id": self.alert_id,
+            "location": self.location,
+            "source": self.source,
+            "destination": self.destination,
+            "traffic_level": self.traffic_level,
+            "confidence": round(self.confidence * 100) if self.confidence <= 1.0 else round(self.confidence),
+            "vehicle_count": self.vehicle_count,
+            "historical_baseline": self.historical_baseline,
+            "recent_traffic": self.recent_traffic,
+            "expected_duration": self.expected_duration,
+            "detected_at": self.detected_at.strftime("%I:%M %p") if self.detected_at else "",
+            "timestamp_full": self.detected_at.strftime("%Y-%m-%d %H:%M:%S") if self.detected_at else "",
+            "status": self.status,
+            "recommended_action": self.recommended_action,
+            "assigned_unit": self.assigned_unit
+        }
+
+
+class PoliceUnit(models.Model):
+    unit_code = models.CharField(max_length=50, unique=True)
+    officer_name = models.CharField(max_length=100, default="Officer On Duty")
+    location = models.CharField(max_length=150, default="Central Post")
+    status = models.CharField(max_length=50, default="Available")
+    current_alert_id = models.CharField(max_length=64, blank=True, null=True, default=None)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "unit_code": self.unit_code,
+            "officer_name": self.officer_name,
+            "location": self.location,
+            "status": self.status,
+            "current_alert_id": self.current_alert_id
+        }
+
+

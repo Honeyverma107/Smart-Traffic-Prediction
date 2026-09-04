@@ -23,7 +23,7 @@ const DashboardContent = ({ t, challans, signalState, setSelectedViolation }) =>
       </div>
       <div style={{ background: t.bgSurface, border: `1px solid ${t.border}`, borderRadius: '8px', padding: '16px', boxShadow: t.shadow }}>
         <span style={{ fontSize: '0.65rem', color: t.textMuted, fontWeight: 600, textTransform: 'uppercase' }}>PENDING REVIEWS</span>
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: t.warning, marginTop: '4px' }}>{challans.filter(c => (c.status || '').includes('PENDING')).length}</div>
+        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: t.warning, marginTop: '4px' }}>{challans.filter(c => (c.status || '').toLowerCase().includes('pending')).length}</div>
         <span style={{ fontSize: '0.7rem', color: t.textSecondary, marginTop: '2px', display: 'block' }}>Awaiting Verification</span>
       </div>
       <div style={{ background: t.bgSurface, border: `1px solid ${t.border}`, borderRadius: '8px', padding: '16px', boxShadow: t.shadow }}>

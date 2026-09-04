@@ -19,6 +19,12 @@ from .views import (
     AutoChallanListProcessView,
     AutoChallanDetailView,
 )
+from .traffic_police_views import (
+    TrafficPoliceAlertsView,
+    TrafficPoliceUpdateAlertStatusView,
+    TrafficPoliceUnitsView
+)
+
 
 
 urlpatterns = [
@@ -205,4 +211,21 @@ urlpatterns = [
         "right-time-to-go",
         RightTimeToGoView.as_view()
     ),
-]
+
+    # Traffic Police Endpoints
+    path(
+        "traffic-police/alerts/",
+        TrafficPoliceAlertsView.as_view(),
+        name="traffic_police_alerts"
+    ),
+    path(
+        "traffic-police/alerts/<str:alert_id>/status/",
+        TrafficPoliceUpdateAlertStatusView.as_view(),
+        name="traffic_police_update_alert_status"
+    ),
+    path(
+        "traffic-police/units/",
+        TrafficPoliceUnitsView.as_view(),
+        name="traffic_police_units"
+    ),
+]

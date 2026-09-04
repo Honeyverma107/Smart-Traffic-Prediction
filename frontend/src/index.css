@@ -1,41 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Theme Colors - Dark Cyberpunk Theme */
-  --bg-app: #030712;
-  --bg-sidebar: rgba(11, 15, 26, 0.7);
-  --bg-card: rgba(17, 24, 39, 0.55);
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --glow-shadow: rgba(99, 102, 241, 0.2);
-  
-  /* Text Colors */
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  
-  /* Accent Colors */
-  --color-primary: #3b82f6;      /* Blue */
-  --color-primary-hover: #1d4ed8;
-  --color-secondary: #10b981;    /* Emerald Green */
-  --color-accent: #8b5cf6;       /* Purple/Violet */
-  
-  /* Traffic Status Colors */
-  --traffic-green: #10b981;      /* Low traffic */
-  --traffic-orange: #f59e0b;     /* Medium traffic */
-  --traffic-red: #ef4444;        /* Heavy traffic */
-  
-  /* Route Legend Colors */
-  --route-fastest: #60a5fa;      /* Blue */
-  --route-balanced: #f59e0b;     /* Amber */
-  --route-slow: #a78bfa;         /* Violet */
-
-  /* UI Transitions */
-  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-[data-theme="light"] {
-  /* Theme Colors - Light Modern Theme */
+  /* Theme Colors - Light Modern Theme (Permanent) */
   --bg-app: #f8fafc;
   --bg-sidebar: rgba(255, 255, 255, 0.9);
   --bg-card: rgba(255, 255, 255, 0.95);
@@ -62,6 +28,10 @@
   --route-fastest: #2563eb;
   --route-balanced: #d97706;
   --route-slow: #7c3aed;
+
+  /* UI Transitions */
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -90,16 +60,16 @@ code {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* Glassmorphism Classes */
@@ -108,7 +78,7 @@ code {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-glass);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
 }
 
 .glass-card {
@@ -120,6 +90,6 @@ code {
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.1);
 }

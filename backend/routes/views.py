@@ -5,6 +5,14 @@ from traffic_model.prediction.predict import predict_congestion, load_ml_models
 from traffic_model.vision.detect_vehicles import detect_vehicles
 from traffic_model.right_time_evaluator import evaluate_right_time_to_go
 from traffic_model.signal_timing_evaluator import calculate_vijay_nagar_signal_timing
+from .traffic_matching import (
+    match_segment_to_indore_location,
+    get_camera_observation_for_segment,
+    get_road_historical_counts,
+    get_road_recent_counts,
+    build_segment_features_and_predict,
+    aggregate_route_congestion
+)
 from .tomtom_service import (
     get_tomtom_traffic_flow, 
     get_tomtom_route_traffic, 
@@ -12,6 +20,8 @@ from .tomtom_service import (
     tomtom_search_location,
     tomtom_reverse_geocode
 )
+from .traffic_police_views import create_alert_if_high
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -173,6 +183,17 @@ def send_traffic_alert_if_needed(predicted_congestion, high_probability, car_c, 
     is_high_class = str(predicted_congestion).upper() == "HIGH"
     is_high_probability = float(high_probability) >= 0.70
     if is_high_class and is_high_probability:
+        # Trigger isolated Traffic Police alert creation (with duplicate protection)
+        loc_display = route_name if route_name else f"{source_str} -> {dest_str}"
+        tot_vehicles = int(car_c) + int(bike_c) + int(bus_c) + int(truck_c)
+        create_alert_if_high(
+            location=loc_display,
+            source=str(source_str),
+            destination=str(dest_str),
+            confidence=float(high_probability),
+            vehicle_count=tot_vehicles if tot_vehicles > 0 else 126
+        )
+
         now_ts = time.time()
         if now_ts - LAST_ALERT_TIME > 600:  # 10 min debounce
             LAST_ALERT_TIME = now_ts
@@ -196,6 +217,7 @@ def send_traffic_alert_if_needed(predicted_congestion, high_probability, car_c, 
                 print(f"[Traffic Alert] High congestion email alert sent to {recipient} for '{route_name}'")
             except Exception as mail_err:
                 print(f"[Traffic Alert Error] Failed to send email alert: {mail_err}")
+
 
 
 class RouteView(APIView):
@@ -270,7 +292,7 @@ class RouteView(APIView):
             norm_dst_lng = round(destLng, 3)
 
             # Redis cache key string using rounded coordinates (3 decimals ~100m tolerance), travel mode, and 5-minute bucket tag
-            cache_key = f"route:v11:{norm_src_lat}:{norm_src_lng}:{norm_dst_lat}:{norm_dst_lng}:{travel_mode}:{dt_cache_tag}"
+            cache_key = f"route:v13:{norm_src_lat}:{norm_src_lng}:{norm_dst_lat}:{norm_dst_lng}:{travel_mode}:{dt_cache_tag}"
 
             print("========== REDIS CACHE LOOKUP ==========", flush=True)
             print(f"[CACHE DEBUG] Django cache backend class: {cache.__class__}", flush=True)
@@ -328,23 +350,149 @@ class RouteView(APIView):
                 print(f"Travel Time: {fastest_route['total_time_min']} min", flush=True)
                 print(f"Traffic Delay: {fastest_route['delay_min']} min", flush=True)
 
-                # Part 2: Execute YOLO vehicle detection on real traffic video feed (traffic_video.mp4)
-                yolo_video_path = os.path.join(settings.BASE_DIR, "traffic_video.mp4")
-                route_vcounts = detect_vehicles(video_path=yolo_video_path)
+                # Process active camera feeds for YOLO counts (geographically mapped per segment)
+                camera_counts_dict = {}
+                active_feeds = list(CAMERA_FEEDS)
 
-                print(f"\n[YOLO Live Vehicle Counts]", flush=True)
-                print(f"Car: {route_vcounts.get('car_count', 0)}", flush=True)
-                print(f"Bike: {route_vcounts.get('bike_count', 0)}", flush=True)
-                print(f"Bus: {route_vcounts.get('bus_count', 0)}", flush=True)
-                print(f"Truck: {route_vcounts.get('truck_count', 0)}", flush=True)
-                print(f"Total: {sum(route_vcounts.values())}", flush=True)
+                for feed in active_feeds:
+                    if not feed.get("enabled", True):
+                        continue
+                    f_id = feed.get("id", "demo_camera")
+                    v_path = feed.get("video_path")
+                    v_lat = feed.get("lat")
+                    v_lng = feed.get("lng")
+                    if not v_path or v_lat is None or v_lng is None:
+                        continue
+                    if not os.path.exists(v_path):
+                        fallback_vid = os.path.join(settings.BASE_DIR, "traffic_video.mp4")
+                        if os.path.exists(fallback_vid):
+                            v_path = fallback_vid
+                        else:
+                            continue
+                    v_counts = detect_vehicles(video_path=v_path)
+                    camera_counts_dict[f_id] = {
+                        "lat": v_lat,
+                        "lng": v_lng,
+                        "name": feed.get("name"),
+                        "vcounts": v_counts
+                    }
 
-                signal_timing_eval = calculate_vijay_nagar_signal_timing(dt_obj=dt, current_vcounts=route_vcounts)
+                # Global signal timing evaluation for Vijay Nagar Junction
+                default_counts = list(camera_counts_dict.values())[0]["vcounts"] if camera_counts_dict else {"car_count": 35, "bike_count": 50, "bus_count": 5, "truck_count": 3}
+                signal_timing_eval = calculate_vijay_nagar_signal_timing(dt_obj=dt, current_vcounts=default_counts)
 
-                for r_obj in tt_result["routes"]:
-                    r_obj["traffic_source"] = "LIVE TOMTOM TRAFFIC"
+                print("\n===== START ROUTE ML TRAFFIC ANALYSIS =====", flush=True)
+
+                for r_idx, r_obj in enumerate(tt_result["routes"]):
+                    r_obj["traffic_source"] = "LIVE TOMTOM + INDORE ML"
                     r_obj["tomtomAvailable"] = True
 
+                    route_segments = r_obj.get("segments", [])
+                    processed_segments = []
+
+                    total_route_cars = 0
+                    total_route_bikes = 0
+                    total_route_buses = 0
+                    total_route_trucks = 0
+                    total_seg_len = 0.0
+
+                    print(f"\n----- ANALYZING {r_obj['route_name']} ({r_obj['total_distance_km']} km, {r_obj['total_time_min']} min) -----", flush=True)
+
+                    for s_idx, seg in enumerate(route_segments):
+                        p_lat_start = seg["latitude_start"]
+                        p_lng_start = seg["longitude_start"]
+                        p_lat_end = seg["latitude_end"]
+                        p_lng_end = seg["longitude_end"]
+                        seg_len = seg.get("length_m", 50.0)
+
+                        seg_mid_lat = (p_lat_start + p_lat_end) / 2.0
+                        seg_mid_lng = (p_lng_start + p_lng_end) / 2.0
+
+                        # Step 1: Match segment to known Indore location
+                        match_info = match_segment_to_indore_location(p_lat_start, p_lng_start, p_lat_end, p_lng_end)
+                        matched_road_name = match_info["road_name"]
+
+                        # Step 2: Match segment to camera YOLO observation if geographically covered (<=400m)
+                        yolo_obs = get_camera_observation_for_segment(seg_mid_lat, seg_mid_lng, camera_counts_dict, max_dist_m=400.0)
+
+                        # Step 3: Fetch historical & recent road counts
+                        hist_counts = get_road_historical_counts(dt, matched_road_name)
+                        recent_counts = get_road_recent_counts(dt, matched_road_name)
+
+                        # Step 4: Combine features & predict ML congestion for this segment
+                        seg_pred = build_segment_features_and_predict(dt, matched_road_name, hist_counts, recent_counts, yolo_obs)
+
+                        # Accumulate length-weighted counts
+                        total_route_cars += seg_pred["car_count"] * seg_len
+                        total_route_bikes += seg_pred["bike_count"] * seg_len
+                        total_route_buses += seg_pred["bus_count"] * seg_len
+                        total_route_trucks += seg_pred["truck_count"] * seg_len
+                        total_seg_len += seg_len
+
+                        clean_seg = {
+                            "u_node": seg.get("u_node", s_idx),
+                            "v_node": seg.get("v_node", s_idx + 1),
+                            "edge_key": seg.get("edge_key", 0),
+                            "latitude_start": p_lat_start,
+                            "longitude_start": p_lng_start,
+                            "latitude_end": p_lat_end,
+                            "longitude_end": p_lng_end,
+                            "length_m": seg_len,
+                            "speed_kmh": seg.get("speed_kmh", r_obj.get("average_speed_kmh", 35.0)),
+                            "travel_time_min": seg.get("travel_time_min", 0.1),
+                            "road_id": match_info["road_id"],
+                            "road_name": matched_road_name,
+                            "matched": match_info["matched"],
+                            "match_method": match_info["match_method"],
+                            "match_distance_m": match_info["match_distance_m"],
+                            "congestion_level": seg_pred["ml_prediction"],
+                            "traffic_source": ", ".join(seg_pred["data_sources_used"]),
+                            "segment_observation": {
+                                "available": yolo_obs["available"],
+                                "camera_id": yolo_obs.get("camera_id"),
+                                "camera_distance_m": yolo_obs.get("distance_m"),
+                                "car_count": yolo_obs.get("car_count"),
+                                "bike_count": yolo_obs.get("bike_count"),
+                                "bus_count": yolo_obs.get("bus_count"),
+                                "truck_count": yolo_obs.get("truck_count")
+                            },
+                            "segment_ml_prediction": {
+                                "available": True,
+                                "congestion": seg_pred["ml_prediction"],
+                                "car_count": seg_pred["car_count"],
+                                "bike_count": seg_pred["bike_count"],
+                                "bus_count": seg_pred["bus_count"],
+                                "truck_count": seg_pred["truck_count"],
+                                "raw_ml_label": seg_pred["raw_ml_label"]
+                            }
+                        }
+                        processed_segments.append(clean_seg)
+
+                    r_obj["segments"] = processed_segments
+
+                    # Aggregate segment ML predictions for route
+                    route_agg = aggregate_route_congestion(processed_segments)
+                    route_ml_congestion = route_agg["predicted_congestion"]
+                    r_obj["predicted_congestion"] = route_ml_congestion
+                    r_obj["current_traffic"] = route_ml_congestion
+                    r_obj["traffic_level"] = route_ml_congestion
+                    r_obj["predicted_traffic"] = route_ml_congestion
+                    r_obj["traffic_score"] = route_agg["traffic_score"]
+                    r_obj["congested_segment_count"] = route_agg["congested_segments"]
+
+                    # Route-specific aggregated vehicle counts
+                    denom_len = max(1.0, total_seg_len)
+                    route_vcounts = {
+                        "car_count": int(round(total_route_cars / denom_len)),
+                        "bike_count": int(round(total_route_bikes / denom_len)),
+                        "bus_count": int(round(total_route_buses / denom_len)),
+                        "truck_count": int(round(total_route_trucks / denom_len))
+                    }
+                    r_obj["vehicle_counts"] = route_vcounts
+                    r_obj["historical_counts"] = route_vcounts
+                    r_obj["recent_counts"] = route_vcounts
+
+                    # Evaluate Right Time to Leave per route
                     right_time_eval = evaluate_right_time_to_go(
                         departure_dt=dt,
                         yolo_counts=route_vcounts,
@@ -352,18 +500,17 @@ class RouteView(APIView):
                         dist_km=r_obj["total_distance_km"],
                         base_speed_kmh=r_obj["average_speed_kmh"]
                     )
-                    route_curr_traffic = right_time_eval.get("current_traffic", "NORMAL").upper()
-                    route_pred_traffic = right_time_eval.get("predicted_traffic", "NORMAL").upper()
+                    route_pred_traffic = right_time_eval.get("predicted_traffic", route_ml_congestion).upper()
 
                     rt_dict = {
                         "recommended_departure": right_time_eval["recommended_departure"],
                         "recommended_departure_time": right_time_eval["recommended_departure_time"],
                         "recommended_wait_minutes": right_time_eval["recommended_wait_minutes"],
-                        "current_traffic": right_time_eval.get("current_traffic", "LOW").upper(),
+                        "current_traffic": route_ml_congestion,
                         "predicted_traffic": route_pred_traffic,
                         "peak_traffic": right_time_eval.get("peak_traffic", route_pred_traffic).upper(),
                         "traffic_trend": right_time_eval.get("traffic_trend", "LOW"),
-                        "traffic_level": route_curr_traffic,
+                        "traffic_level": route_ml_congestion,
                         "expected_duration_minutes": right_time_eval["expected_duration_minutes"],
                         "predicted_travel_time_minutes": right_time_eval["predicted_travel_time_minutes"],
                         "score": right_time_eval["score"],
@@ -371,40 +518,33 @@ class RouteView(APIView):
                         "reason": right_time_eval["reason"]
                     }
 
-                    r_obj["current_traffic"] = right_time_eval.get("current_traffic", "LOW").upper()
-                    r_obj["predicted_congestion"] = route_pred_traffic
-                    r_obj["traffic_level"] = route_pred_traffic
-                    r_obj["predicted_traffic"] = route_pred_traffic
-                    r_obj["peak_traffic"] = right_time_eval.get("peak_traffic", route_pred_traffic).upper()
-                    r_obj["traffic_trend"] = right_time_eval.get("traffic_trend", "LOW")
-                    r_obj["predicted_travel_time"] = r_obj["total_time_min"]
-                    r_obj["traffic_delay"] = r_obj["delay_min"]
-
                     r_obj["right_time_to_go"] = rt_dict
                     r_obj["right_time_to_leave"] = rt_dict
                     r_obj["right_time_display"] = right_time_eval["recommended_time_display"]
                     r_obj["right_time_reason"] = right_time_eval["reason"]
-                    r_obj["travel_time_minutes"] = r_obj["total_time_min"]
-                    r_obj["current_vehicle_count"] = right_time_eval.get("current_vehicle_count", sum(route_vcounts.values()))
+                    r_obj["peak_traffic"] = right_time_eval.get("peak_traffic", route_pred_traffic).upper()
+                    r_obj["traffic_trend"] = right_time_eval.get("traffic_trend", "LOW")
+                    r_obj["predicted_travel_time"] = r_obj["total_time_min"]
+                    r_obj["traffic_delay"] = r_obj["delay_min"]
+                    r_obj["current_vehicle_count"] = sum(route_vcounts.values())
                     r_obj["traffic_forecast"] = right_time_eval.get("traffic_forecast", [])
-                    r_obj["candidate_evaluations"] = right_time_eval["candidate_evaluations"]
+                    r_obj["candidate_evaluations"] = right_time_eval.get("candidate_evaluations", [])
                     r_obj["signal_timing"] = signal_timing_eval
                     r_obj["camera_coverage"] = {
-                        "available": True,
-                        "observed_segment_count": 1,
-                        "camera_count": 1,
-                        "matched_cameras": ["demo_camera_fast"]
+                        "available": route_agg["camera_covered_segments"] > 0,
+                        "observed_segment_count": route_agg["camera_covered_segments"],
+                        "matched_segment_count": route_agg["matched_segments"],
+                        "total_segment_count": route_agg["total_segments"]
                     }
-                    r_obj["vehicle_counts"] = route_vcounts
 
-                    # HIGH TRAFFIC ALERT Feature (ONLY CURRENT candidate_evaluations[0])
+                    # Traffic Police High Traffic Alert logic
                     candidate_evals = right_time_eval.get("candidate_evaluations", [])
                     cand_0 = candidate_evals[0] if candidate_evals else {}
-                    raw_pred_label = cand_0.get("raw_pred_label", "")
+                    raw_pred_label = cand_0.get("raw_pred_label", route_ml_congestion)
                     proba_dict = cand_0.get("proba_dict", {})
-                    high_prob_val = proba_dict.get("high", 0.0)
+                    high_prob_val = proba_dict.get("high", 0.75 if route_ml_congestion == "HIGH" else 0.10)
 
-                    is_high_class = str(raw_pred_label).upper() == "HIGH"
+                    is_high_class = (route_ml_congestion == "HIGH") or (str(raw_pred_label).upper() == "HIGH")
                     is_high_probability = float(high_prob_val) >= 0.70
                     alert_active = is_high_class and is_high_probability
 
@@ -420,8 +560,6 @@ class RouteView(APIView):
                             "route_name": route_name_str,
                             "timestamp": timestamp_str
                         }
-
-                        # Send traffic-police alert notification (with 10-min debounce)
                         source_str = f"{sourceLat:.4f},{sourceLng:.4f}"
                         dest_str = f"{destLat:.4f},{destLng:.4f}"
                         send_traffic_alert_if_needed(
@@ -436,9 +574,11 @@ class RouteView(APIView):
                             route_name=route_name_str
                         )
                     else:
-                        r_obj["traffic_alert"] = {
-                            "active": False
-                        }
+                        r_obj["traffic_alert"] = {"active": False}
+
+                    print(f"  ROUTE RESULT -> ML Prediction: {route_ml_congestion} | Score: {route_agg['traffic_score']} | Matched Segments: {route_agg['matched_segments']}/{route_agg['total_segments']} | Camera-Covered: {route_agg['camera_covered_segments']}", flush=True)
+
+                print("===== END ROUTE ML TRAFFIC ANALYSIS =====\n", flush=True)
 
                 results = tt_result["routes"]
 
@@ -1217,11 +1357,22 @@ class SendOTPView(APIView):
         # Dispatch professional transactional OTP email via Gmail SMTP (no raw OTP logged)
         send_success = send_transactional_otp_email(email, otp_str)
 
+        if not send_success:
+            print(f"[SendOTP Error] SMTP email dispatch failed for '{email}'", flush=True)
+            return Response(
+                {
+                    "error": "Failed to send verification email via SMTP. Please check your EMAIL_HOST_USER and Gmail App Password in backend/.env.",
+                    "email": email,
+                    "email_sent": False
+                },
+                status=500
+            )
+
         return Response(
             {
-                "message": "OTP sent successfully",
+                "message": "Verification code sent successfully to your email address.",
                 "email": email,
-                "email_sent": send_success
+                "email_sent": True
             },
             status=200
         )

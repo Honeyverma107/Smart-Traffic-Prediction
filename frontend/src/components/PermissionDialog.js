@@ -9,14 +9,13 @@ const PermissionDialog = ({ onPermission }) => {
         console.log(`PermissionDialog - Current location: ${latitude}, ${longitude}`);
         let address = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         try {
-          const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`;
-          const resp = await fetch(url);
+          const resp = await fetch(`/api/location/reverse/?lat=${latitude}&lng=${longitude}`);
           const data = await resp.json();
-          if (data && data.display_name) {
-            address = data.display_name;
+          if (data && data.address) {
+            address = data.address;
           }
         } catch (e) {
-          console.warn('Reverse geocode failed for current location:', e);
+          console.warn('TomTom Reverse geocode failed for current location:', e);
         }
 
         onPermission(true, {

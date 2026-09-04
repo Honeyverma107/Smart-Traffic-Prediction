@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TrafficMap from './TrafficMap';
 import PermissionDialog from './PermissionDialog';
-import AIAutoChallan from './AIAutoChallan';
 import { indoreLocations } from '../utils/locations';
+
 import flatpickr from 'flatpickr';
-import { useTheme } from '../ThemeContext';
 import { 
   MapPin, 
   Calendar, 
@@ -15,17 +14,22 @@ import {
   SlidersHorizontal, 
   Compass, 
   Info,
-  Sun,
-  Moon,
   User,
   ChevronDown,
   ChevronUp,
   ShieldAlert
 } from 'lucide-react';
 
-const MainContent = ({ onLogout }) => {
-  const { theme, toggleTheme } = useTheme();
-  const [activeViewTab, setActiveViewTab] = useState('navigation'); // 'navigation' or 'challan'
+
+const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
+  const [activeViewTab, setActiveViewTab] = useState(initialViewTab);
+
+  useEffect(() => {
+    if (initialViewTab) {
+      setActiveViewTab(initialViewTab);
+    }
+  }, [initialViewTab]);
+
   const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
   const [sourceLatLng, setSourceLatLng] = useState(null);
@@ -79,7 +83,7 @@ const MainContent = ({ onLogout }) => {
   const [selectedTransport, setSelectedTransport] = useState('bike');
   const [trafficResult, setTrafficResult] = useState('');
   const [showTrafficResult, setShowTrafficResult] = useState(false);
-  const [showPermissionDialog, setShowPermissionDialog] = useState(true);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
   const [routes, setRoutes] = useState([]);
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
@@ -91,63 +95,106 @@ const MainContent = ({ onLogout }) => {
     pinModeRef.current = pinMode;
   }, [pinMode]);
 
+  // Check location permission state & reuse cached location in sessionStorage
   useEffect(() => {
-    setShowPermissionDialog(true);
+    const isHandled = sessionStorage.getItem('location_permission_handled');
+    const cachedLat = sessionStorage.getItem('user_latitude');
+    const cachedLng = sessionStorage.getItem('user_longitude');
+    const cachedAddr = sessionStorage.getItem('user_address');
 
+    if (cachedLat && cachedLng && cachedAddr && !sourceLatLng) {
+      setSource(cachedAddr);
+      setSourceLatLng(`${cachedLat},${cachedLng}`);
+      setShowPermissionDialog(false);
+    } else if (!isHandled && activeViewTab === 'navigation') {
+      setShowPermissionDialog(true);
+    } else {
+      setShowPermissionDialog(false);
+    }
+  }, [activeViewTab, sourceLatLng]);
+
+  useEffect(() => {
     const initialNow = new Date();
     setDate(formatDate(initialNow));
     setTime(formatTime(initialNow));
 
-    // Initialize flatpickr date
-    flatpickrDateRef.current = flatpickr("#date", {
-      dateFormat: "d-m-Y",
-      defaultDate: initialNow,
-      onChange: (selectedDates, dateStr) => {
-        isUserDateEditedRef.current = true;
-        setDate(dateStr.toString());
-        clearRoutesState();
+    if (activeViewTab === 'navigation') {
+      // Safely destroy previous instances before re-initializing
+      if (flatpickrDateRef.current && typeof flatpickrDateRef.current.destroy === 'function') {
+        flatpickrDateRef.current.destroy();
+        flatpickrDateRef.current = null;
       }
-    });
-
-    // Initialize flatpickr time
-    flatpickrTimeRef.current = flatpickr("#time", {
-      enableTime: true,
-      noCalendar: true,
-      dateFormat: "h:i K",
-      time_24hr: false,
-      defaultDate: initialNow,
-      onChange: (selectedDates, timeStr) => {
-        isUserTimeEditedRef.current = true;
-        setTime(timeStr);
-        clearRoutesState();
+      if (flatpickrTimeRef.current && typeof flatpickrTimeRef.current.destroy === 'function') {
+        flatpickrTimeRef.current.destroy();
+        flatpickrTimeRef.current = null;
       }
-    });
 
-    // Dynamic Live Local Time Sync (updates every minute if not manually edited by user)
+      // Initialize flatpickr date on existing element
+      const dateEl = document.querySelector("#date");
+      if (dateEl) {
+        const fpDate = flatpickr(dateEl, {
+          dateFormat: "d-m-Y",
+          defaultDate: initialNow,
+          onChange: (selectedDates, dateStr) => {
+            isUserDateEditedRef.current = true;
+            setDate(dateStr.toString());
+            clearRoutesState();
+          }
+        });
+        flatpickrDateRef.current = Array.isArray(fpDate) ? fpDate[0] : fpDate;
+      }
+
+      // Initialize flatpickr time on existing element
+      const timeEl = document.querySelector("#time");
+      if (timeEl) {
+        const fpTime = flatpickr(timeEl, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: "h:i K",
+          time_24hr: false,
+          defaultDate: initialNow,
+          onChange: (selectedDates, timeStr) => {
+            isUserTimeEditedRef.current = true;
+            setTime(timeStr);
+            clearRoutesState();
+          }
+        });
+        flatpickrTimeRef.current = Array.isArray(fpTime) ? fpTime[0] : fpTime;
+      }
+    }
+
+    // Dynamic Live Local Time Sync (updates every 10s if not manually edited by user)
     const timer = setInterval(() => {
       const currentNow = new Date();
       if (!isUserTimeEditedRef.current) {
         const newTimeStr = formatTime(currentNow);
         setTime(newTimeStr);
-        if (flatpickrTimeRef.current) {
+        if (flatpickrTimeRef.current && typeof flatpickrTimeRef.current.setDate === 'function') {
           flatpickrTimeRef.current.setDate(currentNow, false);
         }
       }
       if (!isUserDateEditedRef.current) {
         const newDateStr = formatDate(currentNow);
         setDate(newDateStr);
-        if (flatpickrDateRef.current) {
+        if (flatpickrDateRef.current && typeof flatpickrDateRef.current.setDate === 'function') {
           flatpickrDateRef.current.setDate(currentNow, false);
         }
       }
-    }, 10000); // Poll every 10s for smooth minute transitions
+    }, 10000);
 
     return () => {
       clearInterval(timer);
-      if (flatpickrDateRef.current) flatpickrDateRef.current.destroy();
-      if (flatpickrTimeRef.current) flatpickrTimeRef.current.destroy();
+      if (flatpickrDateRef.current && typeof flatpickrDateRef.current.destroy === 'function') {
+        flatpickrDateRef.current.destroy();
+        flatpickrDateRef.current = null;
+      }
+      if (flatpickrTimeRef.current && typeof flatpickrTimeRef.current.destroy === 'function') {
+        flatpickrTimeRef.current.destroy();
+        flatpickrTimeRef.current = null;
+      }
     };
-  }, []);
+  }, [activeViewTab]);
+
 
   const clearRoutesState = () => {
     setRoutes([]);
@@ -158,18 +205,21 @@ const MainContent = ({ onLogout }) => {
 
   const handlePermission = (allowed, locationData) => {
     setShowPermissionDialog(false);
+    sessionStorage.setItem('location_permission_handled', allowed ? 'granted' : 'skipped');
+
     if (allowed && locationData) {
       const { latitude, longitude, address } = locationData;
       const coords = `${latitude},${longitude}`;
       setSource(address || coords);
       setSourceLatLng(coords);
-      console.log('Location permission granted', locationData);
-    } else if (allowed) {
-      console.log('Location permission granted, but no coordinates were returned.');
+      sessionStorage.setItem('user_latitude', latitude);
+      sessionStorage.setItem('user_longitude', longitude);
+      sessionStorage.setItem('user_address', address || coords);
     } else {
-      console.warn("Location access denied by user.");
+      sessionStorage.setItem('location_permission_handled', 'skipped');
     }
   };
+
 
   const handleTransportChange = (transport) => {
     setSelectedTransport(transport);
@@ -334,15 +384,17 @@ const MainContent = ({ onLogout }) => {
       }
     }
 
-    const url = `https://nominatim.openstreetmap.org/search?city=Indore&state=Madhya%20Pradesh&country=India&q=${encodeURIComponent(place)}&format=json&limit=1`;
     try {
-      const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-      const data = await resp.json();
-      if (data && data.length > 0) {
-        return `${data[0].lat},${data[0].lon}`;
+      const res = await fetch(`/api/location/search/?q=${encodeURIComponent(place)}`);
+      const data = await res.json();
+      if (data && data.results && data.results.length > 0) {
+        const top = data.results[0];
+        if (top.lat && top.lng) {
+          return `${top.lat},${top.lng}`;
+        }
       }
     } catch (e) {
-      console.error('Geocoding error:', e);
+      console.error('TomTom Geocoding error:', e);
     }
     throw new Error(`Location "${place}" not found. Try dropping a marker pin.`);
   };
@@ -642,26 +694,25 @@ const MainContent = ({ onLogout }) => {
         setSourceLatLng(coords);
         const address = await getTomTomAddress(latitude, longitude);
         setSource(address);
+        sessionStorage.setItem('location_permission_handled', 'granted');
+        sessionStorage.setItem('user_latitude', latitude);
+        sessionStorage.setItem('user_longitude', longitude);
+        sessionStorage.setItem('user_address', address);
         clearRoutesState();
       },
       (error) => {
         console.warn("Geolocation error:", error);
         setSource("");
+        sessionStorage.setItem('location_permission_handled', 'denied');
         alert("Location permission denied. Please enter your source manually.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  if (activeViewTab === 'challan') {
-    return (
-      <div id="mainContent" style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
-        <AIAutoChallan onBackToNavigation={() => setActiveViewTab('navigation')} />
-      </div>
-    );
-  }
 
   return (
+
     <div id="mainContent" className="dashboard-app-shell" style={{
       display: 'grid',
       gridTemplateColumns: '340px 1fr',
@@ -693,39 +744,6 @@ const MainContent = ({ onLogout }) => {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button 
-              type="button" 
-              onClick={() => setActiveViewTab('challan')}
-              title="AI Auto Challan Violation Engine"
-              style={{
-                padding: '5px 10px',
-                borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#ef4444',
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <ShieldAlert size={14} />
-              <span>Challan</span>
-            </button>
-
-            <button 
-              type="button" 
-              className="landing-theme-toggle-btn" 
-              onClick={toggleTheme} 
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-            >
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-              <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
-            </button>
-
             <div className="user-account-menu-container" ref={userMenuRef} style={{ position: 'relative' }}>
               <button
                 type="button"

@@ -138,5 +138,8 @@ def send_transactional_otp_email(recipient_email, otp_code):
     except Exception as e:
         raw_pwd = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
         err_msg = str(e).replace(raw_pwd, '******') if raw_pwd else str(e)
-        print(f"[OTP EMAIL ERROR] Failed to send email to '{masked_recipient}': {type(e).__name__}: {err_msg}", flush=True)
+        if '535' in err_msg or 'BadCredentials' in err_msg or 'Authentication' in type(e).__name__:
+            print(f"[OTP EMAIL ERROR] Gmail SMTP Authentication Failed (535 Bad Credentials): Google rejected credentials for '{masked_sender}'. Please verify EMAIL_HOST_PASSWORD in backend/.env.", flush=True)
+        else:
+            print(f"[OTP EMAIL ERROR] Failed to send email to '{masked_recipient}': {type(e).__name__}: {err_msg}", flush=True)
         return False

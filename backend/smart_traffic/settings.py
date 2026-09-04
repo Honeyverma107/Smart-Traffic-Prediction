@@ -16,7 +16,8 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 from dotenv import load_dotenv
-load_dotenv(BASE_DIR / '.env', override=True)
+# Load .env without forcing override, allowing OS/terminal environment variables to take precedence
+load_dotenv(BASE_DIR / '.env', override=False)
 from decouple import config, Csv
 from datetime import timedelta
 
@@ -168,15 +169,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 #     os.getenv("FRONTEND_URL")
 # ]
 
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER') or os.getenv('EMAIL_USER') or ''
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') or os.getenv('EMAIL_PASS') or ''
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
-TRAFFIC_ALERT_EMAIL = os.getenv('TRAFFIC_ALERT_EMAIL', 'trafficpolice@example.com')
+EMAIL_HOST_USER = (os.getenv('EMAIL_HOST_USER') or os.getenv('EMAIL_USER') or '').strip().strip("'\"")
+EMAIL_HOST_PASSWORD = (os.getenv('EMAIL_HOST_PASSWORD') or os.getenv('EMAIL_PASS') or '').strip().strip("'\"")
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend').strip()
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com').strip()
+EMAIL_PORT = int(str(os.getenv('EMAIL_PORT', '587')).strip())
+EMAIL_USE_TLS = str(os.getenv('EMAIL_USE_TLS', 'True')).strip().lower() in ('true', '1', 'yes')
+EMAIL_USE_SSL = str(os.getenv('EMAIL_USE_SSL', 'False')).strip().lower() in ('true', '1', 'yes')
+DEFAULT_FROM_EMAIL = (os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER).strip().strip("'\"")
+TRAFFIC_ALERT_EMAIL = os.getenv('TRAFFIC_ALERT_EMAIL', 'trafficpolice@example.com').strip()
 
 print("\n========== EMAIL SMTP CONFIGURATION ==========")
 print(f"EMAIL_BACKEND: {EMAIL_BACKEND}")

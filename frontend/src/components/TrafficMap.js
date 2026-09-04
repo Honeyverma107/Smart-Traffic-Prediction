@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useTheme } from '../ThemeContext';
 
 // Custom Leaflet SVG Pin Markers
 const createLeafletIcon = (color, label) => {
@@ -100,7 +99,6 @@ const TrafficMap = ({
   destinationLatLng,
   pinMode
 }) => {
-  const { theme } = useTheme();
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -172,7 +170,7 @@ const TrafficMap = ({
     }
   }, [onMapClick]);
 
-  // Update Tile Layer on Theme Change
+  // Initialize Tile Layer (TomTom Orbis Light Mode)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -181,16 +179,14 @@ const TrafficMap = ({
       tileLayerRef.current.remove();
     }
 
-    const isDark = theme !== 'light';
-    const tileUrl = isDark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const TOMTOM_API_KEY = (process.env.REACT_APP_TOMTOM_API_KEY || '7SrnWdqzHqr6ntJOpASDreuH4wIsqCaA').trim();
+    const tileUrl = `https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${TOMTOM_API_KEY}`;
 
     tileLayerRef.current = L.tileLayer(tileUrl, {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap &copy; CARTO'
+      attribution: '&copy; TomTom Orbis Maps'
     }).addTo(map);
-  }, [theme]);
+  }, []);
 
   // Render Routes and Markers
   useEffect(() => {

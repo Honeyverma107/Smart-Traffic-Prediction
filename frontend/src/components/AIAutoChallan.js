@@ -1,23 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  ShieldAlert, 
-  Camera, 
-  X, 
-  LayoutDashboard, 
-  Video, 
-  FileText, 
-  Database, 
-  Users, 
-  BarChart3, 
-  FileSpreadsheet, 
-  Settings, 
-  Clock, 
-  Sun,
-  Moon,
-  ArrowLeft,
-  MapPin
+  ShieldAlert,
+  X,
+  LayoutDashboard,
+  FileText,
+  Users,
+  BarChart3,
+  FileSpreadsheet,
+  Calendar,
+  Bell,
+  ChevronDown
 } from 'lucide-react';
-import { useTheme } from '../ThemeContext';
 
 import DashboardContent from './DashboardContent';
 import LiveMonitoring from './LiveMonitoring';
@@ -29,26 +22,109 @@ import TrafficAnalytics from './TrafficAnalytics';
 import TrafficReports from './TrafficReports';
 import SystemSettings from './SystemSettings';
 
-const sidebarNavItems = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'live-monitoring', label: 'Live Monitoring', icon: Video },
-  { key: 'violations', label: 'Violations', icon: ShieldAlert },
-  { key: 'challan-records', label: 'Challan Records', icon: FileText },
-  { key: 'vehicle-database', label: 'Vehicle Database', icon: Database },
-  { key: 'offenders', label: 'Offenders', icon: Users },
-  { key: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { key: 'reports', label: 'Reports', icon: FileSpreadsheet },
-  { key: 'system-settings', label: 'System Settings', icon: Settings },
+const INITIAL_DEMO_RECORDS = [
+  {
+    id: 'AC-2026-0001',
+    challan_id: 'AC-2026-0001',
+    vehicle_number: 'MP-09-AB-1234',
+    vehicle_type: 'Car',
+    violation_type: 'Red Light Violation',
+    signal_state: 'RED',
+    timestamp: '2026-09-01 10:45:12',
+    location: 'Vijay Nagar Junction',
+    camera: 'CAM 01',
+    fine_amount: 1000,
+    status: 'Pending Review',
+    tracking_id: 12,
+    evidence_video: '/ai_challan_violation_chrome.mp4',
+    before_evidence_url: '/media/evidence/AI-CHALLAN-01B5AFD3_before.jpg',
+    during_evidence_url: '/media/evidence/AI-CHALLAN-01B5AFD3_during.jpg',
+    after_evidence_url: '/media/evidence/AI-CHALLAN-01B5AFD3_after.jpg',
+    detection_summary: 'Vehicle MP-09-AB-1234 crossed stop line Y=0.55 while signal was RED.'
+  },
+  {
+    id: 'AC-2026-0002',
+    challan_id: 'AC-2026-0002',
+    vehicle_number: 'MP-09-CD-5678',
+    vehicle_type: 'Car',
+    violation_type: 'Red Light Violation',
+    signal_state: 'RED',
+    timestamp: '2026-09-01 10:50:34',
+    location: 'Vijay Nagar Junction',
+    camera: 'CAM 01',
+    fine_amount: 1000,
+    status: 'Approved',
+    tracking_id: 13,
+    evidence_video: '/ai_challan_violation_chrome.mp4',
+    before_evidence_url: '/media/evidence/AI-CHALLAN-0D463851_before.jpg',
+    during_evidence_url: '/media/evidence/AI-CHALLAN-0D463851_during.jpg',
+    after_evidence_url: '/media/evidence/AI-CHALLAN-0D463851_after.jpg',
+    detection_summary: 'Automated ANPR matched MP-09-CD-5678 crossing active RED signal.'
+  },
+  {
+    id: 'AC-2026-0003',
+    challan_id: 'AC-2026-0003',
+    vehicle_number: 'MP-09-EF-2468',
+    vehicle_type: 'Motorcycle',
+    violation_type: 'Stop Line Violation',
+    signal_state: 'RED',
+    timestamp: '2026-09-01 11:02:19',
+    location: 'Vijay Nagar Square',
+    camera: 'CAM 01',
+    fine_amount: 500,
+    status: 'Pending Review',
+    tracking_id: 14,
+    evidence_video: '/ai_challan_violation_chrome.mp4',
+    before_evidence_url: '/media/evidence/AI-CHALLAN-1030BB20_before.jpg',
+    during_evidence_url: '/media/evidence/AI-CHALLAN-1030BB20_during.jpg',
+    after_evidence_url: '/media/evidence/AI-CHALLAN-1030BB20_after.jpg',
+    detection_summary: 'Two-wheeler MP-09-EF-2468 overshot zebra crossing stop line threshold.'
+  },
+  {
+    id: 'AC-2026-0004',
+    challan_id: 'AC-2026-0004',
+    vehicle_number: 'MP-09-GH-1357',
+    vehicle_type: 'Car',
+    violation_type: 'Red Light Violation',
+    signal_state: 'RED',
+    timestamp: '2026-09-01 11:10:05',
+    location: 'Vijay Nagar Junction',
+    camera: 'CAM 01',
+    fine_amount: 1000,
+    status: 'Issued',
+    tracking_id: 15,
+    evidence_video: '/ai_challan_violation_chrome.mp4',
+    before_evidence_url: '/media/evidence/AI-CHALLAN-13228187_before.jpg',
+    during_evidence_url: '/media/evidence/AI-CHALLAN-13228187_during.jpg',
+    after_evidence_url: '/media/evidence/AI-CHALLAN-13228187_after.jpg',
+    detection_summary: 'Challan AC-2026-0004 issued to MP-09-GH-1357 for red light breach.'
+  },
+  {
+    id: 'AC-2026-0005',
+    challan_id: 'AC-2026-0005',
+    vehicle_number: 'MP-09-JK-9753',
+    vehicle_type: 'SUV',
+    violation_type: 'Signal Jump',
+    signal_state: 'RED',
+    timestamp: '2026-09-01 11:15:40',
+    location: 'Vijay Nagar Square',
+    camera: 'CAM 01',
+    fine_amount: 1500,
+    status: 'Pending Review',
+    tracking_id: 16,
+    evidence_video: '/ai_challan_violation_chrome.mp4',
+    before_evidence_url: '/media/evidence/AI-CHALLAN-142ED92A_before.jpg',
+    during_evidence_url: '/media/evidence/AI-CHALLAN-142ED92A_during.jpg',
+    after_evidence_url: '/media/evidence/AI-CHALLAN-142ED92A_after.jpg',
+    detection_summary: 'SUV MP-09-JK-9753 detected accelerating through red light intersection.'
+  }
 ];
 
 const AIAutoChallan = ({ onBackToNavigation }) => {
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === 'dark';
-
-  const [challans, setChallans] = useState([]);
+  const [challans, setChallans] = useState(INITIAL_DEMO_RECORDS);
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [signalState, setSignalState] = useState('RED'); // 'RED' or 'GREEN'
-  const [selectedViolation, setSelectedViolation] = useState(null);
+  const [selectedViolation, setSelectedViolation] = useState(INITIAL_DEMO_RECORDS[0]);
   const [showChallanModal, setShowChallanModal] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -57,6 +133,20 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
 
   const navigateToTab = (tabKey) => {
     setActiveSidebar(tabKey);
+  };
+
+  // Dynamic Date Filter States
+  const [timePeriodFilter, setTimePeriodFilter] = useState('This Month');
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('2026-09-01');
+  const [customEndDate, setCustomEndDate] = useState('2026-09-30');
+
+  const getFilterLabel = () => {
+    if (timePeriodFilter === 'Custom') {
+      return `${customStartDate} to ${customEndDate}`;
+    }
+    return timePeriodFilter;
   };
 
   // Search & Filter States for Modules
@@ -232,38 +322,35 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
     document.body.removeChild(link);
   };
 
-  const currentTabObj = sidebarNavItems.find(item => item.key === activeSidebar);
-  const currentTabLabel = currentTabObj ? currentTabObj.label : 'Live Monitoring';
-
-  // Enterprise Design Tokens
+  // Enterprise Control-Room Design Tokens (Light Mode)
   const t = {
-    bgApp: isDark ? '#0B0F14' : '#F5F7FA',
-    bgSidebar: isDark ? '#0F172A' : '#FFFFFF',
-    bgSurface: isDark ? '#111820' : '#FFFFFF',
-    bgElevated: isDark ? '#161F29' : '#F8FAFC',
-    border: isDark ? '#26313D' : '#E2E8F0',
+    bgApp: '#F5F7FA',
+    bgSidebar: '#FFFFFF',
+    bgSurface: '#FFFFFF',
+    bgElevated: '#F8FAFC',
+    border: '#E2E8F0',
     
-    textPrimary: isDark ? '#F1F5F9' : '#172033',
-    textSecondary: isDark ? '#94A3B8' : '#64748B',
-    textMuted: isDark ? '#64748B' : '#94A3B8',
+    textPrimary: '#111827',
+    textSecondary: '#4B5563',
+    textMuted: '#9CA3AF',
     
-    primary: isDark ? '#3B82F6' : '#2563EB',
-    primaryBg: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(37, 99, 235, 0.08)',
-    primaryBorder: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
+    primary: '#2563EB',
+    primaryBg: 'rgba(37, 99, 235, 0.08)',
+    primaryBorder: 'rgba(37, 99, 235, 0.2)',
     
-    danger: '#DC2626',
-    dangerBg: isDark ? 'rgba(220, 38, 38, 0.08)' : 'rgba(220, 38, 38, 0.06)',
-    dangerBorder: isDark ? 'rgba(220, 38, 38, 0.25)' : 'rgba(220, 38, 38, 0.2)',
+    danger: '#EF4444',
+    dangerBg: 'rgba(239, 68, 68, 0.08)',
+    dangerBorder: 'rgba(239, 68, 68, 0.25)',
     
-    warning: '#D97706',
-    warningBg: isDark ? 'rgba(217, 119, 6, 0.08)' : 'rgba(217, 119, 6, 0.06)',
-    warningBorder: isDark ? 'rgba(217, 119, 6, 0.25)' : 'rgba(217, 119, 6, 0.2)',
+    warning: '#F59E0B',
+    warningBg: 'rgba(245, 158, 11, 0.08)',
+    warningBorder: 'rgba(245, 158, 11, 0.25)',
     
-    success: '#059669',
-    successBg: isDark ? 'rgba(5, 150, 105, 0.08)' : 'rgba(5, 150, 105, 0.06)',
-    successBorder: isDark ? 'rgba(5, 150, 105, 0.25)' : 'rgba(5, 150, 105, 0.2)',
+    success: '#10B981',
+    successBg: 'rgba(16, 185, 129, 0.08)',
+    successBorder: 'rgba(16, 185, 129, 0.25)',
     
-    shadow: isDark ? '0 2px 6px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
+    shadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
   };
 
   // HELPER METHOD TO RENDER ACTIVE VIEW COMPONENT
@@ -302,6 +389,7 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
             setSelectedViolation={setSelectedViolation}
             setShowChallanModal={setShowChallanModal}
             navigateToTab={navigateToTab}
+            timePeriodFilter={timePeriodFilter}
           />
         );
 
@@ -365,6 +453,9 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
           <TrafficAnalytics
             t={t}
             challans={challans}
+            navigateToTab={navigateToTab}
+            timePeriodFilter={timePeriodFilter}
+            setTimePeriodFilter={setTimePeriodFilter}
           />
         );
 
@@ -388,298 +479,197 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
 
       default:
         return (
-          <LiveMonitoring
+          <DashboardContent
             t={t}
             challans={challans}
-            isAnalyzing={isAnalyzing}
-            setIsAnalyzing={setIsAnalyzing}
             signalState={signalState}
-            handleToggleSignal={handleToggleSignal}
-            handleScanVideo={handleScanVideo}
-            currentViolation={currentViolation}
-            selectedViolation={selectedViolation}
-            isViolationAlertActive={isViolationAlertActive}
-            currentTime={currentTime}
-            videoRef={videoRef}
-            videoError={videoError}
-            handleVideoCanPlay={handleVideoCanPlay}
-            handleVideoError={handleVideoError}
             setSelectedViolation={setSelectedViolation}
-            setShowChallanModal={setShowChallanModal}
-            navigateToTab={navigateToTab}
           />
         );
     }
   };
 
+  const moduleNavItems = [
+    { key: 'live-monitoring', label: 'Live Monitoring', icon: LayoutDashboard },
+    { key: 'challan-records', label: 'Challan Records', icon: FileText },
+    { key: 'offenders', label: 'Offenders', icon: Users },
+    { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { key: 'reports', label: 'Reports', icon: FileSpreadsheet }
+  ];
+
   return (
     <div style={{
       display: 'flex',
-      height: '100%',
+      flexDirection: 'column',
+      minHeight: '100%',
       width: '100%',
       background: t.bgApp,
       color: t.textPrimary,
-      fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      transition: 'background-color 0.2s ease, color 0.2s ease',
+      fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       boxSizing: 'border-box',
-      overflow: 'hidden'
+      padding: '20px 24px'
     }}>
-      {/* 1. LEFT SIDEBAR NAVIGATION */}
-      <aside style={{
-        width: '230px',
-        background: t.bgSidebar,
-        borderRight: `1px solid ${t.border}`,
+      {/* 1. TOP HEADER */}
+      <div style={{
         display: 'flex',
-        flexDirection: 'column',
-        justify: 'space-between',
-        padding: '16px 12px',
-        boxSizing: 'border-box',
-        flexShrink: 0,
-        transition: 'all 0.2s ease',
-        zIndex: 50,
-        pointerEvents: 'auto',
-        position: 'relative'
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingBottom: '16px',
+        borderBottom: `1px solid ${t.border}`,
+        marginBottom: '16px'
       }}>
         <div>
-          {/* Logo Brand Header */}
+          <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#0B1630', letterSpacing: '-0.02em' }}>
+            AI AUTO-CHALLAN
+          </h1>
+          <span style={{ fontSize: '0.88rem', color: '#536789', fontWeight: 500, marginTop: '2px', display: 'block' }}>
+            Automated violation detection and e-challan generation using AI
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative' }}>
+          {/* Dynamic Date Filter Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setShowDateDropdown(!showDateDropdown)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#FFFFFF',
+                border: `1px solid ${t.border}`,
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                color: '#0B1630',
+                boxShadow: t.shadow,
+                cursor: 'pointer'
+              }}
+            >
+              <Calendar size={16} color="#0878F9" />
+              <span>{getFilterLabel()}</span>
+              <ChevronDown size={14} color="#536789" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showDateDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                right: 0,
+                background: '#FFFFFF',
+                border: `1px solid ${t.border}`,
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.12)',
+                zIndex: 100,
+                minWidth: '180px',
+                padding: '6px 0',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {['Today', 'This Week', 'This Month', 'This Year', 'Custom Date Range'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      if (opt === 'Custom Date Range') {
+                        setShowDateDropdown(false);
+                        setShowCustomModal(true);
+                      } else {
+                        setTimePeriodFilter(opt);
+                        setShowDateDropdown(false);
+                      }
+                    }}
+                    style={{
+                      padding: '9px 16px',
+                      textAlign: 'left',
+                      background: (timePeriodFilter === opt || (opt === 'Custom Date Range' && timePeriodFilter === 'Custom')) ? 'rgba(8, 120, 249, 0.08)' : 'transparent',
+                      color: (timePeriodFilter === opt || (opt === 'Custom Date Range' && timePeriodFilter === 'Custom')) ? '#0878F9' : '#0B1630',
+                      border: 'none',
+                      fontWeight: (timePeriodFilter === opt || (opt === 'Custom Date Range' && timePeriodFilter === 'Custom')) ? 700 : 500,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s ease'
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notification Bell */}
           <div style={{
+            position: 'relative',
+            background: '#FFFFFF',
+            border: `1px solid ${t.border}`,
+            borderRadius: '8px',
+            padding: '9px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            padding: '4px 8px 16px 8px',
-            borderBottom: `1px solid ${t.border}`,
-            marginBottom: '16px'
+            justifyContent: 'center',
+            boxShadow: t.shadow,
+            cursor: 'pointer'
           }}>
-            <div style={{
-              background: t.primaryBg,
-              border: `1px solid ${t.primaryBorder}`,
-              padding: '7px',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'center'
-            }}>
-              <ShieldAlert size={18} color={t.primary} />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, letterSpacing: '0.2px', color: t.textPrimary }}>
-                AUTO-CHALLAN
-              </h2>
-              <span style={{ fontSize: '0.6rem', color: t.textMuted, fontWeight: 500, letterSpacing: '0.3px', textTransform: 'uppercase' }}>
-                AI Enforcement Engine
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px', pointerEvents: 'auto' }}>
-            {sidebarNavItems.map((item) => {
-              const IconComp = item.icon;
-              const currentNormKey = (activeSidebar || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
-              const itemNormKey = (item.key || item.label || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
-              const isActive = currentNormKey === itemNormKey;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => navigateToTab(item.key)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '9px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: isActive ? t.primaryBg : 'transparent',
-                    color: isActive ? t.primary : t.textSecondary,
-                    borderLeft: isActive ? `3px solid ${t.primary}` : '3px solid transparent',
-                    fontWeight: isActive ? 700 : 500,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'left',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    pointerEvents: 'auto'
-                  }}
-                >
-                  <IconComp size={16} color={isActive ? t.primary : t.textMuted} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Sidebar Status Info */}
-        <div style={{
-          background: t.bgElevated,
-          border: `1px solid ${t.border}`,
-          padding: '12px',
-          borderRadius: '6px',
-          marginTop: '16px'
-        }}>
-          <span style={{ fontSize: '0.6rem', color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '6px' }}>
-            SYSTEM HEALTH
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.success }}></span>
-            <span style={{ fontSize: '0.74rem', fontWeight: 600, color: t.textPrimary }}>
-              Operational
-            </span>
+            <Bell size={18} color="#0B1630" />
+            <span style={{ position: 'absolute', top: '7px', right: '7px', width: '7px', height: '7px', borderRadius: '50%', background: '#EF4444' }}></span>
           </div>
         </div>
-      </aside>
-
-      {/* MAIN CONTENT CONTAINER */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', height: '100%' }}>
-        {/* HEADER */}
-        <header style={{
-          background: t.bgSidebar,
-          borderBottom: `1px solid ${t.border}`,
-          padding: '12px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justify: 'space-between',
-          gap: '16px',
-          boxShadow: t.shadow,
-          flexShrink: 0
-        }}>
-          {/* Header Left Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              background: t.bgElevated,
-              padding: '7px',
-              borderRadius: '6px',
-              border: `1px solid ${t.border}`,
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <Camera size={18} color={t.textMuted} />
-            </div>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: t.textPrimary, letterSpacing: '0.2px' }}>
-                {currentTabLabel}
-              </h1>
-              <span style={{ fontSize: '0.74rem', color: t.textSecondary }}>
-                Traffic Enforcement Command Center
-              </span>
-            </div>
-          </div>
-
-          {/* Dynamic Status Indicator */}
-          <div>
-            <span style={{
-              background: isViolationAlertActive ? t.dangerBg : t.successBg,
-              border: `1px solid ${isViolationAlertActive ? t.dangerBorder : t.successBorder}`,
-              color: isViolationAlertActive ? t.danger : t.success,
-              fontSize: '0.76rem',
-              fontWeight: 600,
-              padding: '4px 12px',
-              borderRadius: '16px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: isViolationAlertActive ? t.danger : t.success
-              }}></span>
-              {isViolationAlertActive ? 'RED LIGHT VIOLATION DETECTED' : 'SIGNAL NORMAL — NO VIOLATION'}
-            </span>
-          </div>
-
-          {/* Header Right Widgets */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.76rem',
-              color: t.textSecondary,
-              background: t.bgElevated,
-              padding: '5px 10px',
-              borderRadius: '6px',
-              border: `1px solid ${t.border}`
-            }}>
-              <MapPin size={13} color={t.textMuted} />
-              <span>Indore, Vijay Nagar Junction</span>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.76rem',
-              color: t.textSecondary,
-              background: t.bgElevated,
-              padding: '5px 10px',
-              borderRadius: '6px',
-              border: `1px solid ${t.border}`
-            }}>
-              <Clock size={13} color={t.textMuted} />
-              <span style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            </div>
-
-            {/* Theme Toggle Button */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                background: t.bgElevated,
-                border: `1px solid ${t.border}`,
-                color: t.textPrimary,
-                fontWeight: 500,
-                fontSize: '0.76rem',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {isDark ? <Sun size={14} color="#D97706" /> : <Moon size={14} color={t.primary} />}
-              <span>{isDark ? 'Light' : 'Dark'}</span>
-            </button>
-
-            {/* Back to Route Navigation */}
-            <button
-              type="button"
-              onClick={onBackToNavigation}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                background: t.primaryBg,
-                border: `1px solid ${t.primaryBorder}`,
-                color: t.primary,
-                fontWeight: 600,
-                fontSize: '0.76rem',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Route Navigation</span>
-            </button>
-          </div>
-        </header>
-
-        {/* MAIN MODULE VIEW RENDERING */}
-        <main style={{ padding: '20px 24px', flex: 1, overflowY: 'auto', boxSizing: 'border-box' }}>
-          {renderActiveView()}
-        </main>
       </div>
+
+      {/* 2. HORIZONTAL NAVIGATION BAR (DIRECTLY BELOW HEADER & ABOVE PAGE CONTENT) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        borderBottom: `1px solid ${t.border}`,
+        marginBottom: '20px',
+        paddingBottom: '2px',
+        overflowX: 'auto'
+      }}>
+        {moduleNavItems.map((item) => {
+          const IconComp = item.icon;
+          const currentNormKey = (activeSidebar || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+          const itemNormKey = (item.key || item.label || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+          const isActive = currentNormKey === itemNormKey || 
+            (item.key === 'live-monitoring' && (currentNormKey === 'dashboard' || currentNormKey === 'overview'));
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => navigateToTab(item.key)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                borderRadius: '8px 8px 0 0',
+                border: 'none',
+                background: isActive ? 'rgba(8, 120, 249, 0.08)' : 'transparent',
+                color: isActive ? '#0878F9' : '#536789',
+                borderBottom: isActive ? '3px solid #0878F9' : '3px solid transparent',
+                fontWeight: isActive ? 700 : 500,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <IconComp size={18} color={isActive ? '#0878F9' : '#536789'} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 3. FULL-WIDTH MAIN PAGE CONTENT */}
+      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        {renderActiveView()}
+      </main>
 
       {/* VEHICLE HISTORY DRAWER / MODAL */}
       {selectedVehicleHistory && (
@@ -757,8 +747,58 @@ const AIAutoChallan = ({ onBackToNavigation }) => {
             ) : (
               <div style={{ padding: '20px', textAlign: 'center', color: t.textMuted, fontSize: '0.85rem' }}>No active violation selected to preview.</div>
             )}
-
             <button type="button" onClick={() => setShowChallanModal(false)} style={{ width: '100%', marginTop: '16px', padding: '9px', borderRadius: '6px', background: t.primary, color: '#ffffff', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '0.82rem' }}>CLOSE CHALLAN PREVIEW</button>
+          </div>
+        </div>
+      )}
+      {showCustomModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowCustomModal(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${t.border}`, borderRadius: '12px', padding: '24px', maxWidth: '380px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0B1630' }}>Custom Date Range</h3>
+              <button type="button" onClick={() => setShowCustomModal(false)} style={{ background: 'none', border: 'none', color: '#536789', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#536789', display: 'block', marginBottom: '4px' }}>Start Date</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, fontSize: '0.88rem', fontWeight: 600, color: '#0B1630', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#536789', display: 'block', marginBottom: '4px' }}>End Date</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, fontSize: '0.88rem', fontWeight: 600, color: '#0B1630', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowCustomModal(false)}
+                style={{ flex: 1, padding: '9px', borderRadius: '6px', border: `1px solid ${t.border}`, background: '#F8FAFC', color: '#536789', fontWeight: 600, fontSize: '0.84rem', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTimePeriodFilter('Custom');
+                  setShowCustomModal(false);
+                }}
+                style={{ flex: 1, padding: '9px', borderRadius: '6px', border: 'none', background: '#0878F9', color: '#FFFFFF', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}
+              >
+                Apply Range
+              </button>
+            </div>
           </div>
         </div>
       )}

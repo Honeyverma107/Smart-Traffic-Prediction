@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './LandingPage.css';
-import { useTheme } from '../ThemeContext';
 import { 
   ArrowRight, 
   Play, 
@@ -15,13 +14,10 @@ import {
   X, 
   ShieldCheck, 
   Zap, 
-  Clock,
-  Sun,
-  Moon
+  Clock
 } from 'lucide-react';
 
-const LandingPage = ({ onGetStarted }) => {
-  const { theme, toggleTheme } = useTheme();
+const LandingPage = ({ onGetStarted, onOpenTrafficPolice }) => {
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   
@@ -110,63 +106,49 @@ const LandingPage = ({ onGetStarted }) => {
         ctx.stroke();
       }
 
-      // Draw roads (links)
-      links.forEach(link => {
-        const fromNode = nodes.find(n => n.id === link.from);
-        const toNode = nodes.find(n => n.id === link.to);
-        if (!fromNode || !toNode) return;
+      // Draw road links
+      links.forEach(l => {
+        const fromNode = nodes.find(n => n.id === l.from);
+        const toNode = nodes.find(n => n.id === l.to);
 
-        // Shadow glow
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = link.congestion === 'low' ? 'rgba(16, 185, 129, 0.2)' : link.congestion === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
-        
-        ctx.strokeStyle = link.congestion === 'low' ? 'rgba(16, 185, 129, 0.3)' : link.congestion === 'high' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+        ctx.strokeStyle = l.congestion === 'high' ? 'rgba(239, 68, 68, 0.3)' : l.congestion === 'normal' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(fromNode.x, fromNode.y);
         ctx.lineTo(toNode.x, toNode.y);
         ctx.stroke();
-
-        ctx.shadowBlur = 0; // reset
       });
 
-      // Update and draw car particles
-      particles.forEach((p, idx) => {
+      // Update & Draw particles
+      particles.forEach(p => {
         p.progress += p.speed;
-        if (p.progress >= 1) {
-          p.progress = 0;
-          // Randomly select next node or stay on road
-        }
+        if (p.progress >= 1) p.progress = 0;
 
-        const x = p.from.x + (p.to.x - p.from.x) * p.progress;
-        const y = p.from.y + (p.to.y - p.from.y) * p.progress;
+        const currX = p.from.x + (p.to.x - p.from.x) * p.progress;
+        const currY = p.from.y + (p.to.y - p.from.y) * p.progress;
 
-        // Draw particle
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = p.color;
         ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+        ctx.arc(currX, currY, p.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       });
 
       // Draw smart nodes (hubs)
       nodes.forEach(node => {
-        // Outer glowing ring
         ctx.strokeStyle = 'rgba(139, 92, 246, 0.4)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(node.x, node.y, 16, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Inner solid core
         ctx.fillStyle = '#6366f1';
         ctx.beginPath();
         ctx.arc(node.x, node.y, 6, 0, Math.PI * 2);
         ctx.fill();
 
-        // Label
         ctx.fillStyle = '#9ca3af';
         ctx.font = 'bold 11px Outfit, sans-serif';
         ctx.textAlign = 'center';
@@ -225,16 +207,24 @@ const LandingPage = ({ onGetStarted }) => {
         <div className="landing-nav-actions">
           <button 
             className="landing-theme-toggle-btn" 
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            onClick={onOpenTrafficPolice}
+            style={{
+              background: 'rgba(59, 130, 246, 0.15)',
+              borderColor: 'rgba(59, 130, 246, 0.4)',
+              color: '#3b82f6',
+              fontWeight: 800
+            }}
           >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            <ShieldCheck size={16} color="#3b82f6" />
+            <span>Traffic Police</span>
           </button>
+
           <button className="nav-cta-btn" onClick={onGetStarted}>
             Launch Assistant
           </button>
         </div>
+
+
       </header>
 
       {/* Hero Section */}

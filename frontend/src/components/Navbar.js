@@ -1,8 +1,9 @@
 import React from 'react';
-import { useTheme } from '../ThemeContext';
+import './Navbar.css';
 
-const Navbar = ({ activeTab, setActiveTab, isLoggedIn, userEmail, onLogout, onLoginClick }) => {
-  const { theme, toggleTheme } = useTheme();
+
+const Navbar = ({ activeTab, setActiveTab, isLoggedIn, userEmail, userRole, onLogout, onLoginClick }) => {
+  const isTrafficPolice = isLoggedIn && userRole === 'TRAFFIC_POLICE';
 
   return (
     <header className="navbar">
@@ -32,14 +33,9 @@ const Navbar = ({ activeTab, setActiveTab, isLoggedIn, userEmail, onLogout, onLo
             <span className="material-symbols-outlined">map</span>
             Navigation
           </button>
-          <button 
-            className={`nav-link ${activeTab === 'challan' ? 'active' : ''}`}
-            onClick={() => setActiveTab('challan')}
-          >
-            <span className="material-symbols-outlined">gavel</span>
-            Auto Challan
-          </button>
         </nav>
+
+
       </div>
 
       <div className="nav-right">
@@ -48,26 +44,18 @@ const Navbar = ({ activeTab, setActiveTab, isLoggedIn, userEmail, onLogout, onLo
           <span className="status-text">AI Engine Active</span>
         </div>
 
-        {/* Dark / Light Mode Toggle Button */}
-        <button 
-          type="button"
-          className="theme-toggle-btn" 
-          onClick={toggleTheme}
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-            {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-          </span>
-          <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
-        </button>
-
         {isLoggedIn ? (
           <div className="user-nav-section">
-            <div className="user-avatar-pill" title={userEmail}>
-              <div className="user-avatar">
+            <div className="user-avatar-pill" title={`${userEmail} (${isTrafficPolice ? 'Traffic Police' : 'User'})`}>
+              <div className="user-avatar" style={{ background: isTrafficPolice ? '#2563eb' : 'var(--primary)' }}>
                 {userEmail ? userEmail[0].toUpperCase() : 'U'}
               </div>
-              <span className="user-email-text">{userEmail}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
+                <span className="user-email-text">{userEmail}</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isTrafficPolice ? '#2563eb' : '#059669', textTransform: 'uppercase' }}>
+                  {isTrafficPolice ? '👮 TRAFFIC POLICE' : '👤 USER'}
+                </span>
+              </div>
             </div>
             <button className="nav-logout-btn" onClick={onLogout} title="Log Out">
               <span className="material-symbols-outlined">logout</span>
@@ -84,5 +72,6 @@ const Navbar = ({ activeTab, setActiveTab, isLoggedIn, userEmail, onLogout, onLo
     </header>
   );
 };
+
 
 export default Navbar;
