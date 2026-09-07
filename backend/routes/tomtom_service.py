@@ -390,6 +390,11 @@ def calculate_route_with_tomtom(start_lat: float, start_lng: float, end_lat: flo
                 r_obj["route_name"] = route_names[r_i] if r_i < len(route_names) else f"Route {r_i+1}"
                 r_obj["recommended"] = (r_i == 0)
                 
+                # Standardize property aliases so frontend/serializers never get undefined/0
+                r_obj["distance_km"] = r_obj.get("total_distance_km")
+                r_obj["duration_minutes"] = r_obj.get("total_time_min")
+                r_obj["travel_time_min"] = r_obj.get("total_time_min")
+                
                 # Attach direct coordinates array [lat, lng] for frontend maps
                 coords = []
                 for seg in r_obj.get("segments", []):

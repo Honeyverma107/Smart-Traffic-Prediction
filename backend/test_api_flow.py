@@ -27,17 +27,18 @@ response = view(request)
 
 print(f"Status Code: {response.status_code}")
 if response.status_code == 200:
-    routes_data = response.data
-    print(f"Received {len(routes_data)} routes:")
-    for idx, r in enumerate(routes_data):
-        print(f"\n--- Route {idx + 1}: {r['route_name']} ---")
-        print(f"  Total Distance: {r['total_distance_km']} km")
-        print(f"  Predicted Congestion: {r['predicted_congestion']}")
-        print(f"  Average Speed: {r['average_speed_kmh']} km/h")
-        print(f"  Total Time: {r['total_time_min']} mins")
-        print(f"  Recommended: {r['recommended']}")
-        print(f"  Segments Count: {len(r['segments'])}")
-        print(f"  Vehicle Counts: {r['vehicle_counts']}")
+    res_dict = response.data
+    routes_list = res_dict.get("routes", []) if isinstance(res_dict, dict) else res_dict
+    print(f"Received {len(routes_list)} routes:")
+    for idx, r in enumerate(routes_list):
+        print(f"\n--- Route {idx + 1}: {r.get('route_name') or r.get('label')} ---")
+        print(f"  Total Distance: {r.get('total_distance_km') or r.get('distance_km')} km")
+        print(f"  Predicted Congestion: {r.get('predicted_congestion') or r.get('traffic_level')}")
+        print(f"  Average Speed: {r.get('average_speed_kmh')} km/h")
+        print(f"  Total Time: {r.get('total_time_min') or r.get('duration_minutes')} mins")
+        print(f"  Recommended: {r.get('recommended')}")
+        print(f"  Segments Count: {len(r.get('segments', []))}")
+        print(f"  Vehicle Counts: {r.get('vehicle_counts')}")
 else:
     print("Error Response:", response.data)
 

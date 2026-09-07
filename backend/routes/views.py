@@ -1,7 +1,7 @@
 
 # routes/views.py
 
-from traffic_model.prediction.predict import predict_congestion, load_ml_models
+from traffic_model.prediction.predict import predict_congestion, predict_congestion_with_probabilities, load_ml_models
 from traffic_model.vision.detect_vehicles import detect_vehicles
 from traffic_model.right_time_evaluator import evaluate_right_time_to_go
 from traffic_model.signal_timing_evaluator import calculate_vijay_nagar_signal_timing
@@ -503,19 +503,25 @@ class RouteView(APIView):
                     route_pred_traffic = right_time_eval.get("predicted_traffic", route_ml_congestion).upper()
 
                     rt_dict = {
+                        "route_type": r_obj.get("type", "fastest"),
+                        "right_time_to_leave": right_time_eval["recommended_departure"],
                         "recommended_departure": right_time_eval["recommended_departure"],
                         "recommended_departure_time": right_time_eval["recommended_departure_time"],
                         "recommended_wait_minutes": right_time_eval["recommended_wait_minutes"],
-                        "current_traffic": route_ml_congestion,
+                        "waiting_minutes": right_time_eval.get("waiting_minutes", right_time_eval["recommended_wait_minutes"]),
+                        "current_traffic": right_time_eval.get("current_traffic", route_ml_congestion),
                         "predicted_traffic": route_pred_traffic,
                         "peak_traffic": right_time_eval.get("peak_traffic", route_pred_traffic).upper(),
                         "traffic_trend": right_time_eval.get("traffic_trend", "LOW"),
                         "traffic_level": route_ml_congestion,
                         "expected_duration_minutes": right_time_eval["expected_duration_minutes"],
                         "predicted_travel_time_minutes": right_time_eval["predicted_travel_time_minutes"],
+                        "current_travel_time_minutes": right_time_eval.get("current_travel_time_minutes", r_obj["total_time_min"]),
+                        "time_saved_minutes": right_time_eval.get("time_saved_minutes", 0.0),
                         "score": right_time_eval["score"],
                         "is_independent_optimization": True,
-                        "reason": right_time_eval["reason"]
+                        "reason": right_time_eval["reason"],
+                        "candidate_evaluations": right_time_eval.get("candidate_evaluations", [])
                     }
 
                     r_obj["right_time_to_go"] = rt_dict
@@ -524,7 +530,9 @@ class RouteView(APIView):
                     r_obj["right_time_reason"] = right_time_eval["reason"]
                     r_obj["peak_traffic"] = right_time_eval.get("peak_traffic", route_pred_traffic).upper()
                     r_obj["traffic_trend"] = right_time_eval.get("traffic_trend", "LOW")
-                    r_obj["predicted_travel_time"] = r_obj["total_time_min"]
+                    r_obj["predicted_travel_time"] = right_time_eval["predicted_travel_time_minutes"]
+                    r_obj["current_travel_time"] = right_time_eval.get("current_travel_time_minutes", r_obj["total_time_min"])
+                    r_obj["time_saved_minutes"] = right_time_eval.get("time_saved_minutes", 0.0)
                     r_obj["traffic_delay"] = r_obj["delay_min"]
                     r_obj["current_vehicle_count"] = sum(route_vcounts.values())
                     r_obj["traffic_forecast"] = right_time_eval.get("traffic_forecast", [])
@@ -582,6 +590,15 @@ class RouteView(APIView):
 
                 results = tt_result["routes"]
 
+                # Attach standard property aliases to every route
+                for r_idx, r_item in enumerate(results):
+                    r_item["type"] = "fastest" if r_idx == 0 else "balanced" if r_idx == 1 else "slowest"
+                    r_item["label"] = "Fastest" if r_idx == 0 else "Balanced" if r_idx == 1 else "Eco / Slowest"
+                    r_item["distance_km"] = r_item.get("total_distance_km")
+                    r_item["duration_minutes"] = r_item.get("total_time_min")
+                    r_item["travel_time_min"] = r_item.get("total_time_min")
+                    r_item["signal_timing"] = signal_timing_eval
+
                 # Ensure clean non-circular route objects
                 fastest_item = dict(results[0]) if len(results) > 0 else {}
                 balanced_item = dict(results[1]) if len(results) > 1 else fastest_item
@@ -602,10 +619,6 @@ class RouteView(APIView):
                     "slowest": slowest_item,
                     "signal_timing": signal_timing_eval
                 }
-
-                # Attach signal_timing to individual route items in results array without overwriting route-specific Right Time To Go
-                for r_item in results:
-                    r_item["signal_timing"] = signal_timing_eval
 
                 fast_rtl = fastest_item.get("right_time_to_leave", {})
                 balanced_rtl = balanced_item.get("right_time_to_leave", {})
@@ -654,14 +667,13 @@ class RouteView(APIView):
 
                 return Response(response_payload)
             else:
-                # If TomTom routing fails: return 503 error as required
                 err_text = tt_result.get("error", "Live TomTom routing is currently unavailable.")
-                print(f"[TomTom] API request failed: status = {tt_result.get('status_code', 500)}, error = {err_text}", flush=True)
-                return Response({
-                    "error": "Live TomTom routing is currently unavailable.",
-                    "traffic_source": "TOMTOM UNAVAILABLE",
-                    "detail": err_text
-                }, status=503)
+                print(f"[TomTom Fallback] TomTom API unavailable ({err_text}). Falling back to Indore OSMnx Graph calculation...", flush=True)
+            
+            G_graph, graph_load_time = get_graph()
+            ml_model_load_time = 0.0
+            t_route_calc_start = time.time()
+            
             print("Calculating nearest nodes...", flush=True)
             origin = ox.nearest_nodes(G_graph, sourceLng, sourceLat)
             destination = ox.nearest_nodes(G_graph, destLng, destLat)
@@ -1258,10 +1270,26 @@ class RouteView(APIView):
 
             results = [fast_route, balanced_route, slow_route]
 
+            for r_idx, r_item in enumerate(results):
+                r_item["type"] = "fastest" if r_idx == 0 else "balanced" if r_idx == 1 else "slowest"
+                r_item["label"] = "Fastest" if r_idx == 0 else "Balanced" if r_idx == 1 else "Eco / Slowest"
+                r_item["distance_km"] = r_item.get("total_distance_km")
+                r_item["duration_minutes"] = r_item.get("total_time_min")
+                r_item["travel_time_min"] = r_item.get("total_time_min")
+
+            response_payload = {
+                "success": True,
+                "routes": results,
+                "fastest": dict(results[0]),
+                "balanced": dict(results[1]),
+                "slowest": dict(results[2]),
+                "signal_timing": getattr(settings, 'DEFAULT_SIGNAL_TIMING', {})
+            }
+
             t_set_start = time.time()
             stored = False
             try:
-                cache.set(cache_key, results, timeout=300)
+                cache.set(cache_key, response_payload, timeout=300)
                 stored = True
             except Exception as set_err:
                 print(f"[Redis Exception] cache.set failed: {set_err}", flush=True)
@@ -1293,7 +1321,7 @@ class RouteView(APIView):
             print(f"[CACHE DEBUG] SET Verification Check: {'SUCCESS (Retrieved from Redis)' if is_verified else 'FAILED (Key missing in Redis)'}", flush=True)
             print("========================================\n", flush=True)
 
-            return Response(results)
+            return Response(response_payload)
 
         except Exception as e:
             print("Route error:", e, flush=True)
@@ -1581,145 +1609,91 @@ class GoogleLoginView(APIView):
 # CONGESTION PREDICTION API
 # ============================================================
 
+import joblib
+
+_TRAFFIC_CLASSIFICATION_MODEL = None
+_TRAFFIC_CLASSIFICATION_FEATURES = None
+
+def get_traffic_model_pickle():
+    global _TRAFFIC_CLASSIFICATION_MODEL, _TRAFFIC_CLASSIFICATION_FEATURES
+    if _TRAFFIC_CLASSIFICATION_MODEL is None:
+        model_path = os.path.join(settings.BASE_DIR, "traffic_model", "traffic_model.pkl")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"traffic_model.pkl file not found at: {model_path}")
+        loaded = joblib.load(model_path)
+        if isinstance(loaded, dict) and "model" in loaded:
+            _TRAFFIC_CLASSIFICATION_MODEL = loaded["model"]
+            _TRAFFIC_CLASSIFICATION_FEATURES = loaded.get("features", [
+                "car_count", "bike_count", "bus_count", "truck_count", "hour", "minute", "is_weekend"
+            ])
+        else:
+            _TRAFFIC_CLASSIFICATION_MODEL = loaded
+            _TRAFFIC_CLASSIFICATION_FEATURES = [
+                "car_count", "bike_count", "bus_count", "truck_count", "hour", "minute", "is_weekend"
+            ]
+    return _TRAFFIC_CLASSIFICATION_MODEL, _TRAFFIC_CLASSIFICATION_FEATURES
+
+
 class PredictCongestionView(APIView):
+    """
+    Integrates trained 20-feature traffic_model.pkl via predict_congestion_with_probabilities.
+    Accepts vehicle counts, time/hour/minute, day, day_of_week, and road_name.
+    Returns: {"success": true, "prediction": "low" | "medium" | "high", "probabilities": {"low": ..., "medium": ..., "high": ...}}
+    """
 
     def post(self, request):
-
         try:
+            data = request.data or {}
 
-            time_value = request.data.get(
-                "time"
-            )
+            # Extract vehicle counts
+            car_count = float(data.get("car_count", 0))
+            bike_count = float(data.get("bike_count", 0))
+            bus_count = float(data.get("bus_count", 0))
+            truck_count = float(data.get("truck_count", 0))
 
-            day = int(
-                request.data.get(
-                    "day"
-                )
-            )
+            # Time / Hour / Minute features
+            time_val = data.get("time") or data.get("date_time")
+            if not time_val:
+                h = int(data.get("hour", datetime.now().hour))
+                m = int(data.get("minute", datetime.now().minute))
+                time_str = f"{h:02d}:{m:02d}:00"
+            else:
+                time_str = str(time_val)
 
-            day_of_week = request.data.get(
-                "day_of_week"
-            )
+            day = int(data.get("day", datetime.now().day))
+            day_of_week = str(data.get("day_of_week", datetime.now().strftime("%A"))).strip()
+            road_name = str(data.get("road_name", "AB Road Vijay Nagar")).strip()
 
-            car_count = int(
-                request.data.get(
-                    "car_count"
-                )
-            )
-
-            bike_count = int(
-                request.data.get(
-                    "bike_count"
-                )
-            )
-
-            bus_count = int(
-                request.data.get(
-                    "bus_count"
-                )
-            )
-
-            truck_count = int(
-                request.data.get(
-                    "truck_count"
-                )
-            )
-
-            print(
-                "\n========== REQUEST RECEIVED =========="
-            )
-
-            print(
-                "Time:",
-                time_value
-            )
-
-            print(
-                "Day:",
-                day
-            )
-
-            print(
-                "Day of Week:",
-                day_of_week
-            )
-
-            print(
-                "Car Count:",
-                car_count
-            )
-
-            print(
-                "Bike Count:",
-                bike_count
-            )
-
-            print(
-                "Bus Count:",
-                bus_count
-            )
-
-            print(
-                "Truck Count:",
-                truck_count
-            )
-
-            # ------------------------------------------------
-            # ML PREDICTION
-            # ------------------------------------------------
-
-            result = predict_congestion(
-                time_value,
+            # Execute ML prediction with probabilities using unified 20-feature pipeline
+            prediction, probabilities = predict_congestion_with_probabilities(
+                time_str,
                 day,
                 day_of_week,
                 car_count,
                 bike_count,
                 bus_count,
-                truck_count
+                truck_count,
+                road_name
             )
 
-            print(
-                "\n========== MODEL OUTPUT =========="
-            )
+            print(f"[PredictCongestionView] Request: {data} -> Prediction: {prediction} | Probabilities: {probabilities}", flush=True)
 
-            print(result)
-
-            print(
-                "==================================\n"
-            )
-
-            return Response(
-                {
-                    "status":
-                        "success",
-
-                    "traffic_situation":
-                        result
-                }
-            )
+            return Response({
+                "success": True,
+                "prediction": prediction,
+                "probabilities": probabilities,
+                "status": "success",
+                "traffic_situation": prediction
+            })
 
         except Exception as e:
-
-            print(
-                "\n========== ERROR =========="
-            )
-
-            print(str(e))
-
-            print(
-                "===========================\n"
-            )
-
-            return Response(
-                {
-                    "status":
-                        "error",
-
-                    "message":
-                        str(e)
-                },
-                status=400
-            )
+            print(f"[PredictCongestionView ERROR] {e}", flush=True)
+            return Response({
+                "success": False,
+                "error": str(e),
+                "status": "error",
+                "message": str(e)
+            }, status=400)
 
 
 # ============================================================

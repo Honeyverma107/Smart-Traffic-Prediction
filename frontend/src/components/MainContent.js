@@ -16,7 +16,6 @@ import {
   Info,
   User,
   ChevronDown,
-  ChevronUp,
   ShieldAlert
 } from 'lucide-react';
 
@@ -37,7 +36,6 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
   const [pinMode, setPinMode] = useState(null); // 'source' or 'destination' or null
   const pinModeRef = useRef(pinMode);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [expandedRightTime, setExpandedRightTime] = useState({});
   const [expandedSignalTiming, setExpandedSignalTiming] = useState(false);
   const userMenuRef = useRef(null);
   const userEmail = localStorage.getItem('userEmail') || 'user@smarttraffic.ai';
@@ -90,6 +88,8 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [signalData, setSignalData] = useState(null);
   const [isAiTimingApplied, setIsAiTimingApplied] = useState(false);
+
+
 
   useEffect(() => {
     pinModeRef.current = pinMode;
@@ -280,6 +280,49 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
     return 94; // Eco
   };
 
+  const getTrendInfo = (trendStr, currentTraffic, peakTraffic) => {
+    let rawTrend = trendStr;
+    if (!rawTrend) {
+      if (currentTraffic && peakTraffic && currentTraffic !== peakTraffic) {
+        rawTrend = `${currentTraffic} -> ${peakTraffic}`;
+      } else {
+        rawTrend = currentTraffic || 'NORMAL';
+      }
+    }
+
+    const formattedTrend = rawTrend.replace(/->/g, '→').toUpperCase();
+
+    let statusLabel = 'Stable';
+    let statusColor = '#3b82f6';
+    let statusBg = 'rgba(59, 130, 246, 0.15)';
+
+    if (formattedTrend.includes('→')) {
+      const parts = formattedTrend.split('→').map(s => s.trim());
+      const from = parts[0];
+      const to = parts[1];
+
+      if ((from === 'HIGH' && (to === 'NORMAL' || to === 'LOW')) || (from === 'NORMAL' && to === 'LOW')) {
+        statusLabel = 'Improving';
+        statusColor = '#10b981';
+        statusBg = 'rgba(16, 185, 129, 0.15)';
+      } else if ((from === 'LOW' && (to === 'NORMAL' || to === 'HIGH')) || (from === 'NORMAL' && to === 'HIGH')) {
+        statusLabel = 'Worsening';
+        statusColor = '#ef4444';
+        statusBg = 'rgba(239, 68, 68, 0.15)';
+      } else {
+        statusLabel = 'Stable';
+        statusColor = '#3b82f6';
+        statusBg = 'rgba(59, 130, 246, 0.15)';
+      }
+    } else {
+      statusLabel = 'Stable';
+      statusColor = '#3b82f6';
+      statusBg = 'rgba(59, 130, 246, 0.15)';
+    }
+
+    return { formattedTrend, statusLabel, statusColor, statusBg };
+  };
+
   const buildRouteFromOSRM = (route, predictedCongestion, speed, name, index) => {
     const coordinates = route.geometry.coordinates;
     const segments = [];
@@ -315,10 +358,10 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
     const total_time_min = Number((route.duration / 60).toFixed(1));
     const average_speed_kmh = Number(((route.distance / 1000) / (route.duration / 3600)).toFixed(1));
 
-    let mainCongestion = 'normal';
-    if (index === 0) mainCongestion = 'normal';
-    else if (index === 1) mainCongestion = 'low';
-    else mainCongestion = 'high';
+    let mainCongestion = 'NORMAL';
+    if (index === 0) mainCongestion = 'NORMAL';
+    else if (index === 1) mainCongestion = 'LOW';
+    else mainCongestion = 'HIGH';
 
     // GeoJSON [lng, lat] coordinates to [lat, lng]
     const routeCoords = coordinates.map(([lng, lat]) => [lat, lng]);
@@ -327,6 +370,10 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
       route_name: name,
       total_distance_km,
       predicted_congestion: mainCongestion,
+      current_traffic: mainCongestion,
+      peak_traffic: mainCongestion,
+      predicted_peak_traffic: mainCongestion,
+      traffic_trend: index === 0 ? 'NORMAL -> LOW' : index === 1 ? 'LOW -> NORMAL' : 'LOW',
       average_speed_kmh,
       total_time_min,
       segments,
@@ -450,30 +497,38 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
         if (response.ok) {
           const data = await response.json();
           
+          console.log("==========================================");
+          console.log("🔍 /api/routes/ RESPONSE RECEIVED FROM BACKEND:");
+          console.log("Raw Response Data:", data);
+
           let routeArray = [];
           if (Array.isArray(data)) {
             routeArray = data;
           } else if (data && typeof data === 'object') {
-            routeArray = data.routes || [data.fastest, data.balanced, data.slowest].filter(Boolean);
+            if (Array.isArray(data.routes) && data.routes.length >= 3) {
+              routeArray = data.routes;
+            } else {
+              const f = data.fastest || (data.routes && data.routes[0]);
+              const b = data.balanced || (data.routes && data.routes[1]) || f;
+              const s = data.slowest || (data.routes && data.routes[2]) || f;
+              routeArray = [f, b, s].filter(Boolean);
+            }
           }
 
-          if (routeArray && routeArray.length > 0) {
-            const fastestObj = (data && !Array.isArray(data) && data.fastest) ? data.fastest : routeArray[0];
-            const balancedObj = (data && !Array.isArray(data) && data.balanced) ? data.balanced : (routeArray[1] || routeArray[0]);
-            const slowestObj = (data && !Array.isArray(data) && data.slowest) ? data.slowest : (routeArray[2] || routeArray[0]);
-            const signalTimingVal = (data && !Array.isArray(data) && data.signal_timing) || fastestObj?.signal_timing;
-            console.log("Route keys:", Object.keys(data));
-            console.log("Fastest right time:", fastestObj?.right_time_to_leave?.recommended_departure_time || fastestObj?.right_time_display);
-            console.log("Balanced right time:", balancedObj?.right_time_to_leave?.recommended_departure_time || balancedObj?.right_time_display);
-            console.log("Slow/Eco right time:", slowestObj?.right_time_to_leave?.recommended_departure_time || slowestObj?.right_time_display);
-            console.log("SIGNAL TIMING:", signalTimingVal);
-            if (signalTimingVal) {
-              console.log("RECOMMENDED GREEN:", signalTimingVal.recommended_green_seconds);
-              console.log("RECOMMENDED RED:", signalTimingVal.recommended_red_seconds);
-              console.log("SIGNAL CYCLE:", signalTimingVal.cycle_seconds);
-            }
-            console.log("==========================================");
+          console.log(`Parsed ${routeArray.length} Route Objects:`);
+          routeArray.forEach((r, i) => {
+            const name = i === 0 ? 'FASTEST' : i === 1 ? 'BALANCED' : 'SLOW/ECO';
+            console.log(`--- ROUTE [${i}] ${name} ---`);
+            console.log(`  Route Name: ${r?.route_name || r?.label}`);
+            console.log(`  Current Traffic: ${r?.current_traffic || r?.right_time_to_leave?.current_traffic || r?.predicted_congestion}`);
+            console.log(`  Predicted Peak Traffic: ${r?.predicted_peak_traffic || r?.peak_traffic || r?.right_time_to_leave?.peak_traffic}`);
+            console.log(`  Traffic Trend: ${r?.traffic_trend || r?.right_time_to_leave?.traffic_trend}`);
+            console.log(`  Travel Time: ${r?.total_time_min ?? r?.travel_time_min ?? r?.duration_minutes ?? r?.predicted_travel_time} min`);
+            console.log(`  Full Route Object:`, r);
+          });
+          console.log("==========================================");
 
+          if (routeArray && routeArray.length > 0) {
             setRoutes(routeArray);
             setSelectedRouteIdx(0);
             setTrafficResult('');
@@ -1088,6 +1143,7 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
                 </div>
               );
             })()}
+
           </div>
         </div>
 
@@ -1109,20 +1165,67 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
                 <div className="routes-card-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {routes.map((r, idx) => {
                     const isSelected = idx === selectedRouteIdx;
-                    const displayTitle = r.route_name;
-                    const confidence = getConfidenceScore(r.route_name);
-                    const rawCong = (r.traffic_level || r.predicted_traffic || r.predicted_congestion || 'low').toLowerCase();
-                    const congClass = (rawCong.includes('low') || rawCong.includes('green') || rawCong.includes('smooth')) 
+                    const displayTitle = r.route_name || r.label || (idx === 0 ? 'Fastest' : idx === 1 ? 'Balanced' : 'Eco / Slowest');
+                    const confidence = r.confidence || getConfidenceScore(displayTitle);
+                    
+                    // Robust distance & duration getters to prevent 0 KM / 0 MINS
+                    const distVal = r.total_distance_km ?? r.distance_km ?? (r.distance ? Number((r.distance / 1000).toFixed(2)) : 0);
+                    const timeVal = r.total_time_min ?? r.duration_minutes ?? r.travel_time_min ?? r.predicted_travel_time ?? (r.duration ? Number((r.duration / 60).toFixed(1)) : 0);
+                    
+                    const formattedDist = distVal > 0 ? (typeof distVal === 'number' ? distVal.toFixed(2) : distVal) : 'N/A';
+                    const formattedTime = timeVal > 0 ? (typeof timeVal === 'number' ? timeVal.toFixed(1) : timeVal) : 'N/A';
+
+                    // Extract route-specific ML prediction fields directly from backend response object / right_time_to_leave
+                    const currentTraffic = (
+                      r.current_traffic || 
+                      r.right_time_to_leave?.current_traffic || 
+                      r.predicted_congestion || 
+                      r.traffic_level || 
+                      r.ml_prediction || 
+                      'NORMAL'
+                    ).toString().toUpperCase();
+
+                    const predictedPeakTraffic = (
+                      r.predicted_peak_traffic || 
+                      r.peak_traffic || 
+                      r.right_time_to_leave?.peak_traffic || 
+                      r.right_time_to_leave?.predicted_traffic || 
+                      currentTraffic
+                    ).toString().toUpperCase();
+
+                    const travelTimeStr = formattedTime !== 'N/A' ? `${formattedTime} min` : 'N/A';
+
+                    const trendInfo = getTrendInfo(r.traffic_trend || r.right_time_to_leave?.traffic_trend, currentTraffic, predictedPeakTraffic);
+
+                    const candidateEvals = r.candidate_evaluations || r.right_time_to_leave?.candidate_evaluations || [];
+                    const selectedCandidate = candidateEvals.find(c => c.selected) || candidateEvals[0] || null;
+                    const probaDict = selectedCandidate?.proba_dict || null;
+
+                    let probaText = null;
+                    if (probaDict) {
+                      const highP = probaDict.high ?? probaDict.HIGH ?? 0;
+                      const lowP = probaDict.low ?? probaDict.LOW ?? 0;
+                      const medP = probaDict.medium ?? probaDict.MEDIUM ?? probaDict.normal ?? probaDict.NORMAL ?? 0;
+
+                      const hPct = Math.round(highP * (highP <= 1 ? 100 : 1));
+                      const lPct = Math.round(lowP * (lowP <= 1 ? 100 : 1));
+                      const mPct = Math.round(medP * (medP <= 1 ? 100 : 1));
+
+                      probaText = `HIGH: ${hPct}% | LOW: ${lPct}% | MEDIUM: ${mPct}%`;
+                    }
+
+                    // Dynamic badge style and text generated strictly from route's ML prediction
+                    const congClass = (currentTraffic.includes('LOW') || currentTraffic.includes('GREEN') || currentTraffic.includes('SMOOTH')) 
                       ? 'green' 
-                      : (rawCong.includes('normal') || rawCong.includes('orange') || rawCong.includes('yellow') || rawCong.includes('moderate')) 
+                      : (currentTraffic.includes('NORMAL') || currentTraffic.includes('MODERATE') || currentTraffic.includes('ORANGE') || currentTraffic.includes('YELLOW')) 
                         ? 'orange' 
                         : 'red';
 
-                    const congLabel = congClass === 'green' ? 'LOW TRAFFIC' : congClass === 'orange' ? 'MEDIUM TRAFFIC' : 'HIGH TRAFFIC';
-                    const routeETA = calculateETA(time, r.total_time_min);
-                    const aiRecText = getAIRecommendation(r.route_name, r.total_distance_km, r.total_time_min);
+                    const congLabel = `${currentTraffic} TRAFFIC`;
+                    const routeETA = timeVal > 0 ? calculateETA(time, timeVal) : (r.eta || '--:--');
+                    const aiRecText = getAIRecommendation(displayTitle, distVal, timeVal);
 
-                    const isTomTomLive = r.traffic_source === 'LIVE TOMTOM TRAFFIC' || r.tomtomAvailable || (r.segments && r.segments.length > 0 && r.traffic_source !== 'TOMTOM UNAVAILABLE');
+                    const isTomTomLive = r.traffic_source === 'LIVE TOMTOM TRAFFIC' || r.traffic_source === 'LIVE TOMTOM + INDORE ML' || r.tomtomAvailable || (r.segments && r.segments.length > 0 && r.traffic_source !== 'TOMTOM UNAVAILABLE');
                     const accentColor = idx === 0 ? '#0284c7' : idx === 1 ? '#f59e0b' : '#10b981';
 
                     return (
@@ -1161,11 +1264,11 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
 
                         <div className="r-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '8px' }}>
                           <div className="stat-unit">
-                            <span className="val" style={{ fontWeight: 800, fontSize: '0.95rem' }}>{r.total_time_min}</span>
+                            <span className="val" style={{ fontWeight: 800, fontSize: '0.95rem' }}>{formattedTime}</span>
                             <span className="lbl" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>MINS</span>
                           </div>
                           <div className="stat-unit">
-                            <span className="val" style={{ fontWeight: 800, fontSize: '0.95rem' }}>{r.total_distance_km}</span>
+                            <span className="val" style={{ fontWeight: 800, fontSize: '0.95rem' }}>{formattedDist}</span>
                             <span className="lbl" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>KM</span>
                           </div>
                           <div className="stat-unit">
@@ -1176,6 +1279,77 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
                             <span className="val" style={{ fontWeight: 800, fontSize: '0.95rem' }}>{confidence}%</span>
                             <span className="lbl" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>CONF.</span>
                           </div>
+                        </div>
+
+                        {/* Route-Specific ML Prediction Box */}
+                        <div className="r-ml-prediction-box" style={{
+                          marginTop: '8px',
+                          marginBottom: '8px',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid var(--border-glass)',
+                          fontSize: '0.78rem'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'space-between',
+                            marginBottom: '6px'
+                          }}>
+                            <span style={{
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                              color: accentColor,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              🤖 ROUTE ML PREDICTION
+                            </span>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: trendInfo.statusBg,
+                              color: trendInfo.statusColor,
+                              border: `1px solid ${trendInfo.statusColor}40`
+                            }}>
+                              {trendInfo.statusLabel}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px' }}>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Current Traffic: </span>
+                              <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{currentTraffic}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Prediction: </span>
+                              <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{trendInfo.formattedTrend}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Travel Time: </span>
+                              <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{travelTimeStr}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Peak Traffic: </span>
+                              <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{predictedPeakTraffic}</span>
+                            </div>
+                          </div>
+
+                          {probaText && (
+                            <div style={{
+                              marginTop: '6px',
+                              paddingTop: '6px',
+                              borderTop: '1px dashed var(--border-glass)',
+                              fontSize: '0.68rem',
+                              color: 'var(--text-muted)',
+                              fontWeight: 600
+                            }}>
+                              📊 Candidate Probabilities: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{probaText}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="r-recommendation-bubble" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
@@ -1206,84 +1380,82 @@ const MainContent = ({ onLogout, initialViewTab = 'navigation' }) => {
                           </div>
                         )}
 
-                        {/* Expandable RIGHT TIME TO LEAVE option inside route card */}
-                        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-glass)' }}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRouteIdx(idx);
-                              setExpandedRightTime(prev => ({ ...prev, [idx]: !prev[idx] }));
-                            }}
-                            style={{
-                              width: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justify: 'space-between',
-                              padding: '8px 10px',
-                              borderRadius: '8px',
-                              background: expandedRightTime[idx] ? `${accentColor}22` : 'rgba(255, 255, 255, 0.04)',
-                              border: `1px solid ${expandedRightTime[idx] ? accentColor : 'var(--border-glass)'}`,
-                              color: expandedRightTime[idx] ? accentColor : 'var(--text-primary)',
-                              fontWeight: 700,
-                              fontSize: '0.78rem',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              fontFamily: 'Outfit, sans-serif'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Clock size={14} color={accentColor} />
-                              <span style={{ letterSpacing: '0.3px' }}>RIGHT TIME TO LEAVE</span>
-                            </div>
-                            {expandedRightTime[idx] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </button>
+                        {/* Dynamic Route-Specific RIGHT TIME TO LEAVE Section */}
+                        {(() => {
+                          const rtObj = (r.right_time_to_leave && typeof r.right_time_to_leave === 'object')
+                            ? r.right_time_to_leave
+                            : (r.right_time_to_go && typeof r.right_time_to_go === 'object')
+                              ? r.right_time_to_go
+                              : {};
 
-                          {expandedRightTime[idx] && (() => {
-                            const rtObj = (r.right_time_to_leave && typeof r.right_time_to_leave === 'object')
-                              ? r.right_time_to_leave
-                              : (r.right_time_to_go && typeof r.right_time_to_go === 'object')
-                                ? r.right_time_to_go
-                                : {};
+                          const rawDeparture = rtObj.right_time_to_leave || rtObj.recommended_departure_time || rtObj.recommended_departure || r.right_time_display || 'Leave Now';
+                          const waitingMins = rtObj.waiting_minutes ?? rtObj.recommended_wait_minutes ?? 0;
+                          const timeSaved = rtObj.time_saved_minutes ?? 0;
+                          const expectedTraffic = (rtObj.predicted_traffic || rtObj.current_traffic || currentTraffic).toString().toUpperCase();
+                          const predTravelTimeMin = rtObj.predicted_travel_time_minutes ?? rtObj.expected_duration_minutes ?? timeVal;
+                          const reasonText = rtObj.reason || r.right_time_reason || (waitingMins > 0 ? `Traffic is expected to improve around ${rawDeparture}.` : 'Current traffic conditions are optimal.');
 
-                            let recDept = rtObj.recommended_departure_time || rtObj.recommended_departure || r.right_time_display || (typeof r.right_time_to_go === 'string' ? r.right_time_to_go : '');
-                            if (!recDept || recDept.toLowerCase().includes('leave now')) {
-                              const recDate = new Date();
-                              let h = recDate.getHours();
-                              const m = recDate.getMinutes().toString().padStart(2, '0');
-                              const ap = h >= 12 ? 'PM' : 'AM';
-                              h = h % 12 || 12;
-                              recDept = `${h}:${m} ${ap}`;
-                            }
+                          const isLeaveNow = waitingMins === 0 || rawDeparture.toString().toLowerCase().includes('leave now');
+                          const departureBadge = isLeaveNow ? 'Leave Now' : rawDeparture;
 
-                            return (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  marginTop: '8px',
-                                  padding: '10px 12px',
-                                  borderRadius: '8px',
-                                  background: 'var(--bg-glass)',
-                                  border: `1px solid ${accentColor}40`,
-                                  boxShadow: 'var(--shadow-card)',
-                                  fontSize: '0.76rem'
-                                }}
-                              >
-                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                                  Right Time To Leave
+                          return (
+                            <div className="r-right-time-container" style={{
+                              marginTop: '10px',
+                              padding: '10px 12px',
+                              borderRadius: '10px',
+                              background: 'rgba(59, 130, 246, 0.06)',
+                              border: `1.5px solid ${accentColor}40`,
+                              fontSize: '0.78rem'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Clock size={15} color={accentColor} />
+                                  <span style={{ fontWeight: 800, fontSize: '0.72rem', color: accentColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    RIGHT TIME TO LEAVE
+                                  </span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                  <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                    Recommended Departure:
-                                  </span>
-                                  <span style={{ fontSize: '1.1rem', fontWeight: 900, fontFamily: 'Outfit', color: accentColor }}>
-                                    {recDept}
-                                  </span>
+                                <span style={{
+                                  fontSize: '0.92rem',
+                                  fontWeight: 900,
+                                  fontFamily: 'Outfit, sans-serif',
+                                  color: accentColor,
+                                  background: `${accentColor}18`,
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${accentColor}33`
+                                }}>
+                                  {departureBadge}
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 10px', marginTop: '6px' }}>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Expected Traffic: </span>
+                                  <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{expectedTraffic}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Predicted Travel: </span>
+                                  <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{typeof predTravelTimeMin === 'number' ? predTravelTimeMin.toFixed(1) : predTravelTimeMin} min</span>
                                 </div>
                               </div>
-                            );
-                          })()}
-                        </div>
+
+                              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--border-glass)', fontSize: '0.7rem' }}>
+                                {waitingMins > 0 && timeSaved > 0 ? (
+                                  <div style={{ fontWeight: 700, color: '#10b981', marginBottom: '3px' }}>
+                                    ⚡ Save approx {timeSaved.toFixed(1)} min vs leaving now
+                                  </div>
+                                ) : (
+                                  <div style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                    ✅ Leaving now is recommended
+                                  </div>
+                                )}
+                                <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.3 }}>
+                                  💡 {reasonText}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

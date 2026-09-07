@@ -68,7 +68,7 @@ def evaluate_right_time_to_go(
     candidates = []
     traffic_forecast = []
 
-    model, traffic_encoder, day_encoder, road_encoder, _ = load_ml_models()
+    model, traffic_encoder, day_encoder, road_encoder, period_encoder, _ = load_ml_models()
 
     for idx, offset in enumerate(candidate_offsets_min):
         cand_dt = departure_dt + timedelta(minutes=offset)
@@ -90,6 +90,8 @@ def evaluate_right_time_to_go(
             fut_bikes,
             fut_buses,
             fut_trucks,
+            cand_dt.day,
+            cand_dt.strftime("%A"),
             day_encoder,
             road_encoder
         )
@@ -236,18 +238,23 @@ def evaluate_right_time_to_go(
     peak_traffic = "HIGH" if "HIGH" in cand_congestions else ("NORMAL" if "NORMAL" in cand_congestions else "LOW")
     traffic_trend = " -> ".join(list(dict.fromkeys(cand_congestions)))
 
+    travel_saved = round(max(0.0, curr_travel_time - best_candidate["estimated_travel_time_min"]), 1) if best_candidate["offset_min"] > 0 else 0.0
+
     return {
         "current_traffic": curr_candidate["predicted_congestion"],
-        "recommended_departure": recommended_time_12,
-        "recommended_departure_time": recommended_time_12,
-        "recommended_time_display": recommended_time_12,
+        "recommended_departure": recommended_time_12 if best_candidate["offset_min"] > 0 else "Leave Now",
+        "recommended_departure_time": recommended_time_12 if best_candidate["offset_min"] > 0 else "Leave Now",
+        "recommended_time_display": recommended_time_12 if best_candidate["offset_min"] > 0 else "Leave Now",
         "recommended_wait_minutes": best_candidate["offset_min"],
+        "waiting_minutes": best_candidate["offset_min"],
         "predicted_traffic": best_candidate["predicted_congestion"],
         "peak_traffic": peak_traffic,
         "traffic_trend": traffic_trend,
         "traffic_level": best_candidate["predicted_congestion"],
         "expected_duration_minutes": best_candidate["estimated_travel_time_min"],
         "predicted_travel_time_minutes": best_candidate["estimated_travel_time_min"],
+        "current_travel_time_minutes": curr_travel_time,
+        "time_saved_minutes": travel_saved,
         "total_user_time_minutes": best_candidate["total_user_time_min"],
         "journey_cost": best_candidate["journey_cost"],
         "score": best_candidate["journey_cost"],

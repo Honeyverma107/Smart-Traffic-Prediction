@@ -228,4 +228,4 @@ urlpatterns = [
         TrafficPoliceUnitsView.as_view(),
         name="traffic_police_units"
     ),
-]
+]
